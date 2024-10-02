@@ -1,7 +1,7 @@
 # Security and Applied Logic (2024 02026)
 
 ### Anul I
-| Nr. Crt.  | Discipline |
+| No.  | Courses |
 | ------------- | ------------- |
 | 1  | Operating Systems: Design and Security  |
 | 2  | Anomaly Detection  |
