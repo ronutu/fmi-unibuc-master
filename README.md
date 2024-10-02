@@ -5,6 +5,6 @@
 | ------------- | ------------- |
 | 1  | Operating Systems: Design and Security  |
 | 2  | Anomaly Detection  |
-| 3  | Advanced Cryptography  |
+| 3  | [Advanced Cryptography](Advanced%20Cryptography/)  |
 | 4  | Logic for Multiagent Systems  |
 | 5  | Ethics and academic integrity  |
