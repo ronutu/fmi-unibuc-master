@@ -1,6 +1,6 @@
-# Security and Applied Logic (2024 02026)
+# Security and Applied Logic (2024 - 2026)
 
-### Anul I
+### Year I
 | No.  | Courses |
 | ------------- | ------------- |
 | 1  | Operating Systems: Design and Security  |
