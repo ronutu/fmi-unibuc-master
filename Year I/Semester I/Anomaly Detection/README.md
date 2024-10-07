@@ -1,4 +1,4 @@
 # Anomaly Detection
 
-## Source:
+## Course website:
 https://numeric.cs.unibuc.ro/ad.html
