@@ -17,7 +17,7 @@
 `.bss` and `.data` are mapped into the same segment. We can either check the virtual memory map pages for read-write permissions or use the `search` command to find a string in the data section.
 
 ```python
- 0x404000           0x405000 rw-p     1000   3000 /home/radu/osds-lab/lab1/bin/ex1
+0x404000           0x405000 rw-p     1000   3000 /home/radu/osds-lab/lab1/bin/ex1
 ```
 
 This is the only section in `ex1` with read-write permissions.
@@ -28,4 +28,15 @@ The `.text` section should have the execute permissions and the only range with 
 
 ```python
 0x401000           0x402000 r-xp     1000   1000 /home/radu/osds-lab/lab1/bin/ex1
+```
+
+We add a new constant variable `const int rodata` to track the location of the `.rodata` section. By using the `x` command, we find its address:
+```python
+pwndbg> x rodata
+0x402004 <rodata>:      "rodata"
+```
+
+The `.rodata` section is located between `0x402000` and `0x403000`, which indeed has read-only permissions:
+```python
+0x402000           0x403000 r--p     1000   2000 /home/radu/osds-lab/lab1/bin/ex1
 ```
