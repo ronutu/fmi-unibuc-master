@@ -71,3 +71,86 @@ Dump of assembler code for function bar:
 ```
 
 ## Exercise 2 - Baby's first executable loader
+### [Q3]: Check `gdb` with your binary. How does `vmmap` look after running `mmap`? You can step through each line of code with `next` or `n`. You can step through each assembly instruction with `next instruction` or `ni`.
+
+### Solution to [Q3]:
+```
+objdump -d dummy -F
+```
+
+
+Modify `ex2.c`:
+```c
+
+#include <stdio.h>
+#include <sys/mman.h>
+#include <stdlib.h>
+#include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+int main() {
+        FILE *f = fopen("./bin/dummy", "rb");
+        if (!f) {
+                perror("fopen");
+                return 1;
+        }
+
+        off_t foo_offset = 0x1106;
+
+        fseek(f, foo_offset, SEEK_SET);
+
+        unsigned char buffer[100];
+        fread(buffer, 1, sizeof(buffer), f);
+
+
+
+        void *exec_mem = mmap(NULL, sizeof(buffer), PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+         if (exec_mem == MAP_FAILED) {
+                  perror("mmap");
+                  return 1;
+         }
+
+         memcpy(exec_mem, buffer, sizeof(buffer));
+
+         fclose(f);
+
+         (*(void(*)()) exec_mem)();
+
+         return 0;
+}
+```
+
+
+```python
+             Start                End Perm     Size Offset File
+          0x400000           0x401000 r--p     1000      0 /home/radu/osds-lab/lab1/bin/ex2
+          0x401000           0x402000 r-xp     1000   1000 /home/radu/osds-lab/lab1/bin/ex2
+          0x402000           0x403000 r--p     1000   2000 /home/radu/osds-lab/lab1/bin/ex2
+          0x403000           0x404000 r--p     1000   2000 /home/radu/osds-lab/lab1/bin/ex2
+          0x404000           0x405000 rw-p     1000   3000 /home/radu/osds-lab/lab1/bin/ex2
+          0x405000           0x426000 rw-p    21000      0 [heap]
+```
+
+## Exercise 3 - Stacks, calling conventions and mind controlling execution
+### [Q4]: Can you identify the arguments of a function call in the disassembly?
+
+### Solution to [Q4]:
+
+```python
+0000000000401196 <print_msg> (File Offset: 0x1196):
+  401196:       f3 0f 1e fa             endbr64
+  40119a:       55                      push   %rbp
+  40119b:       48 89 e5                mov    %rsp,%rbp
+  40119e:       48 83 ec 10             sub    $0x10,%rsp
+  4011a2:       48 89 7d f8             mov    %rdi,-0x8(%rbp)
+  4011a6:       48 8b 45 f8             mov    -0x8(%rbp),%rax
+  4011aa:       48 89 c6                mov    %rax,%rsi
+  4011ad:       48 8d 05 54 0e 00 00    lea    0xe54(%rip),%rax        # 402008 <_IO_stdin_used+0x8> (File Offset: 0x2008)
+  4011b4:       48 89 c7                mov    %rax,%rdi
+  4011b7:       b8 00 00 00 00          mov    $0x0,%eax
+  4011bc:       e8 bf fe ff ff          call   401080 <printf@plt> (File Offset: 0x1080)
+  4011c1:       90                      nop
+  4011c2:       c9                      leave
+  4011c3:       c3                      ret
+```
