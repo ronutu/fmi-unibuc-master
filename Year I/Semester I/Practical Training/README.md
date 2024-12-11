@@ -1,3 +1,5 @@
+# Simulating a Red Team Attack with Cobalt Strike
+
 | ID  | Name | Use |
 | ------------- | ------------- | ------------- |
 | T1071.001  | Application Layer Protocol: Web Protocols  | Use Cobalt Strike to establish a C2 server |
@@ -10,4 +12,3 @@
 | T1550.002  | Use Alternate Authentication Material: Pass the Hash  | Lateral movement using Pass the Hash attack |
 | T1003.003/ T1560.001/ T1006  | OS Credential Dumping: NTDS/ Archive Collected Data: Archive via Utility/ Direct Volume Access  | Create shadow copy of volume C in order to dump ntds.dit into a zip archive and dump the SYSTEM registry hive file |
 | T1041  | Exfiltration Over C2 Channel  | Exfiltrate data |
-
