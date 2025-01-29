@@ -1,6 +1,6 @@
 # Security and Applied Logic (2024 - 2026)
 
-### Year I
+### Year I - Semester 1
 | No.  | Courses |
 | ------------- | ------------- |
 | 1  | [Academic Deontology](Year%20I/Semester%20I/academic-deontology/)  |
@@ -9,3 +9,7 @@
 | 4  | [Logic for Multiagent Systems](Year%20I/Semester%20I/logic-for-multiagent-systems/)  |
 | 5  | [Operating Systems: Design and Security](Year%20I/Semester%20I/operating-systems-design-and-security/)  |
 | 6  | [Practical Training](Year%20I/Semester%20I/practical-training/)  |
+
+### Year I - Semester 2
+| No.  | Courses |
+| ------------- | ------------- |
