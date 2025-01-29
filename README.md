@@ -7,4 +7,4 @@
 | 2  | [Anomaly Detection](Year%20I/Semester%20I/Anomaly%20Detection/)  |
 | 3  | [Advanced Cryptography](Year%20I/Semester%20I/advanced-cryptography/)
 | 4  | Logic for Multiagent Systems  |
-| 5  | Ethics and academic integrity  |
+| 5  | [Academic Deontology](Year%20I/Semester%20I/academic-deontology/)  |
