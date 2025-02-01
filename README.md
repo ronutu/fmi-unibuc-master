@@ -18,5 +18,3 @@
 | 3  | [Implementation of Concurrency in Programming Languages](Year%20I/Semester%202/implementarea-concurentei-in-limbajele-de-programare/)  |
 | 3  | [Practical Training](Year%20I/Semester%202/practical-training/)  |
 | 4  | [Program Verification](Year%20I/Semester%202/program-verification/)  |
-
-<a href="https://www.google.com/" style="color: white; text-decoration: underline;text-decoration-style: dotted;">custom link</a>
