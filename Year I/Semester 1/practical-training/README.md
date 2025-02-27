@@ -1,4 +1,6 @@
 # Simulating a Red Team Attack with Cobalt Strike
+Below is a mapping of the attack techniques used in my practical training at Bitdefender
+
 ### MITRE ATT&CK Mapping
 
 | ID  | Name | Use |
