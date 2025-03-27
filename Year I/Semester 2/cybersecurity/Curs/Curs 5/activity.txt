@@ -1,0 +1,3 @@
+A file (file.cap) is obtained by capturing traffic from a wireless network. 
+Find the password of the wireless network knowing that it is obtained using only the characters from the MAC address.
+The flag is stored inside the Solution.zip file and the password for accessing is the concatenation between wireless password and the SSID of the network.
