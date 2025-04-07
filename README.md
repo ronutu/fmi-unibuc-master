@@ -13,8 +13,8 @@
 ### Year I - Semester 2
 | No.  | Courses |
 | ------------- | ------------- |
-| 1  | [Cybersecurity](Year%20I/Semester%202/cybersecurity/)  |
-| 2  | [Network Security](Year%20I/Semester%202/network-security/)  |
-| 3  | [Concurrency Implementation in Programming Languages](Year%20I/Semester%202/implementarea-concurentei-in-limbajele-de-programare/)  |
+| 1  | [Concurrency Implementation in Programming Languages](Year%20I/Semester%202/implementarea-concurentei-in-limbajele-de-programare/)  |
+| 2  | [Cybersecurity](Year%20I/Semester%202/cybersecurity/)  |
+| 3  | [Network Security](Year%20I/Semester%202/network-security/)  |
 | 4  | [Practical Training](Year%20I/Semester%202/practical-training/)  |
 | 5  | [Program Verification](Year%20I/Semester%202/program-verification/)  |
