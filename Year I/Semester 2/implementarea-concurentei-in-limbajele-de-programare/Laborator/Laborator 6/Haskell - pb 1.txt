@@ -1,0 +1,68 @@
+import Control.Concurrent 
+import Control.Monad 
+{-
+    Concurenta in Haskell 
+    
+    Concurenta are loc in monada IO. 
+    
+    Pentru a lansa un Thread, utilizam functia 
+    
+    forkIO :: IO () -> IO ThreadId 
+    
+    Pentru concurenta, utilizam (MVar a) care expun urmatorul API 
+
+    (data MVar a)
+    
+    (1) newEmptyMVar :: IO (MVar a) 
+    
+    do 
+        ...
+        m <- newEmptyMVar 
+        ...
+        
+    (2) newMVar :: a -> IO (MVar a) 
+    
+    (3) takeMVar :: MVar a -> IO a
+    
+    (4) putMVar :: MVar a -> a -> IO () 
+    
+-}
+
+{- 
+Exemplu: Sa se implementeze counterul de la curs. 
+Vrem sa avem doua thread-uri care incrementeaza un counter (5000 operatii de incrementare per thread)
+
+Counter-ul il tinem intr-un MVar Int. 
+-} 
+
+type Semaphore = MVar () 
+newSemaphore = newEmptyMVar 
+acquire m = takeMVar m  
+release m = putMVar m () 
+
+increment :: MVar Int -> Semaphore -> IO () 
+increment counter mutex = do 
+    replicateM_ 5000 $ do 
+        x <- takeMVar counter 
+        putMVar counter (x + 1)
+    release mutex
+
+
+main = do 
+    counter <- newMVar 0 
+    
+    mutex1 <- newSemaphore
+    mutex2 <- newSemaphore 
+    
+    thread1 <- forkIO $ increment counter mutex1 
+    thread2 <- forkIO $ increment counter mutex2 
+    
+    acquire mutex1 
+    acquire mutex2 
+    
+    x <- takeMVar counter 
+    
+    print x 
+    print thread1 
+    print thread2 
+    
