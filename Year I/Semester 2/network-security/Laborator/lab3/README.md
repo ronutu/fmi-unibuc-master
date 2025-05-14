@@ -212,4 +212,4 @@ print(flag)
 ```
 
 The flag is indeed written in the SHA-256 format.
-`ECSC{41d57a183ca0b02f471e367a190fdfd903d307fcd43accb20930f35e48074107`
+`ECSC{41d57a183ca0b02f471e367a190fdfd903d307fcd43accb20930f35e48074107}`
