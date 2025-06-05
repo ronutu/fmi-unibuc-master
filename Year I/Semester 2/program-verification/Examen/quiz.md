@@ -6,7 +6,7 @@
 
    - [ ] abstract interpretation
 
-   - [ ] number theory
+   - [x] number theory
 
    - [ ] static analysis
 
@@ -14,7 +14,7 @@
 
 2. What are the kinds of program analysis?
 
-   - [ ] static & dynamic analysis
+   - [x] static & dynamic analysis
 
    - [ ] robust analysis
 
@@ -26,7 +26,7 @@
 
    - [ ] while running the program
 
-   - [ ] without running the program
+   - [x] without running the program
 
    - [ ] after the execution of the program
 
@@ -36,7 +36,7 @@
 
 1. Hoare logic
 
-   - [ ] assumes termination
+   - [x] assumes termination
 
    - [ ] proves termination
 
@@ -46,7 +46,7 @@
 
 2. How is reasoning in Hoare logic done?
 
-   - [ ] backwards, from postcondition to precondition
+   - [x] backwards, from postcondition to precondition
 
    - [ ] forwards, from precondition to postcondition
 
@@ -58,7 +58,7 @@
 
    - [ ] P is stronger than Q
 
-   - [ ] P is weaker than Q
+   - [x] P is weaker than Q
 
    - [ ] Q is weaker than P
 
@@ -70,7 +70,7 @@
 
    - [ ] P is the precondition
 
-   - [ ] C is a first-order formula
+   - [x] C is a first-order formula
 
    - [ ] Q is the postcondition
 
@@ -80,7 +80,7 @@
 
    - [ ] throughout the execution of the loop body
 
-   - [ ] between loop iterations
+   - [x] between loop iterations
 
    - [ ] never holds
 
@@ -90,7 +90,7 @@
 
    - [ ] The loop invariant can automatically be deduced
 
-   - [ ] There is no algorithm to find the loop invariant
+   - [x] There is no algorithm to find the loop invariant
 
    - [ ] Loop invariants are always true
 
@@ -106,13 +106,13 @@
 
    - [ ] Given some code C and a postcondition Q, it finds all P such that the Hoare triple {P} C {Q} is true.
 
-   - [ ] Given some code C and a postcondition Q, it finds the unique P which is the weakest precondition for C and Q.
+   - [x] Given some code C and a postcondition Q, it finds the unique P which is the weakest precondition for C and Q.
 
 2. What does it mean total correctness?
 
    - [ ] it is equivalent with partial correctness
 
-   - [ ] it is equivalent with termination and partial correctness
+   - [x] it is equivalent with termination and partial correctness
 
    - [ ] it is equivalent with termination
 
@@ -120,16 +120,22 @@
 
 3. What is the rule for sequences in Weakest Precondition calculus?
 
-   - [ ] wp(C1; C2,Q) ≡ wp(C1,wp(C2,Q))
+   - [x] wp(C1; C2,Q) ≡ wp(C1,wp(C2,Q))
+
    - [ ] wp(C1; C2,Q) ≡ wp(C2,wp(C1,Q))
+
    - [ ] wp(C1; C2,Q) ≡ wp(C1,Q)
+
    - [ ] wp(C1; C2,Q) ≡ wp(C2,Q)
 
 4. In the Weakest Precondition calculus, finding a loop invariant is
 
    - [ ] easy
+
    - [ ] done in PTIME
-   - [ ] undecidable
+
+   - [x] undecidable
+
    - [ ] done in EXPTIME
 
 ### PV-C05-Quiz1
@@ -140,13 +146,13 @@
 
    - [ ] Heap
 
-   - [ ] Store x Heap
+   - [x] Store x Heap
 
    - [ ] none of the above
 
 2. What is aliasing?
 
-   - [ ] two different program variables containing the same location
+   - [x] two different program variables containing the same location
 
    - [ ] two commands with the same semantics
 
@@ -156,7 +162,7 @@
 
 3. Which of the following connectives is in separation logic?
 
-   - [ ] -
+   - [x] -
 
    - [ ] AG
 
@@ -170,7 +176,7 @@
 
    - [ ] an imperative programming language
 
-   - [ ] a program that automatically decides whether a propositional formula is satisfiable
+   - [x] a program that automatically decides whether a propositional formula is satisfiable
 
    - [ ] a functional programming language
 
@@ -178,13 +184,13 @@
 
 2. Which of the following formulas is in CNF, where - stands for negation of a variable?
 
-- [ ] (p \/ -q) /\ (r/ p)
+   - [x] (p \/ -q) /\ (r \/ p)
 
-- [ ] (p /\ -q) / (r/\ p)
+   - [ ] (p /\ -q) / (r /\ p)
 
-- [ ] p \/ -q / (r/\ p)
+   - [ ] p \/ -q / (r /\ p)
 
-- [ ] none of the above
+   - [ ] none of the above
 
 3. What clause do you obtain after applying the resolution rule for the clauses {x1, x2, x3} and {-x2,x4}, where - stands for negation of a variable?
 
@@ -192,13 +198,13 @@
 
    - [ ] {x1,x2,x3,x4}
 
-   - [ ] {x1,x3,x4}
+   - [x] {x1,x3,x4}
 
    - [ ] {x1,x3} and {x4}
 
 4. Which of the followings is the representation as vectors of vectors of literals forthe CNF formula (x1 / x2) /\ (-x2 / x3), where - stands for negation?
 
-   - [ ] [[1,2],[-2,3]]
+   - [x] [[1,2],[-2,3]]
    - [ ] [1,2,-2,3]
    - [ ] [1,2,3]
    - [ ] [[-1,-2],[2,3]]
@@ -209,7 +215,7 @@
 
    - [ ] P(a)
 
-   - [ ] f(f(a))
+   - [x] f(f(a))
 
    - [ ] P(a) -> f(a)
 
@@ -217,7 +223,7 @@
 
 2. Consider a first-order signature with a constant symbol a, a function symbol f of arity 1, and a predicate symbol P of arity 1. Which of the followings is an atomic formula in first-order logic?
 
-   - [ ] P(a)
+   - [x] P(a)
 
    - [ ] f(f(a))
 
@@ -227,7 +233,7 @@
 
 3. Consider a first-order signature with a constant symbol a, a function symbol f of arity 1, and a predicate symbol P of arity 1. Which of the followings is a formula in first-order logic?
 
-   - [ ] P(a) \/ P(f(a))
+   - [x] P(a) \/ P(f(a))
 
    - [ ] f(f(a))
 
@@ -235,36 +241,34 @@
 
    - [ ] P(P(a))
 
-   - [ ] P(a) / P(f(a))
-
 ### PV-C08-Quiz1
 
 1. For what can we use the Nelson-Oppen method?
 
-- [ ] to solve the SAT problem
+   - [ ] to solve the SAT problem
 
-- [ ] for static analysis
+   - [ ] for static analysis
 
-- [ ] for combining theory solvers
+   - [x] for combining theory solvers
 
-- [ ] none of the above
+   - [ ] none of the above
 
 2. In symbolic execution, at the beginning of the analysis, the path constraint is
 
-- [ ] undefined
+   - [ ] undefined
 
-- [ ] a random first-order formula
+   - [ ] a random first-order formula
 
-- [ ] the syntactic symbol for true
+   - [x] the syntactic symbol for true
 
-- [ ] the syntactic symbol for false
+   - [ ] the syntactic symbol for false
 
 3. What is concolic execution good for?
 
-- [ ] solving the SAT problem
+   - [ ] solving the SAT problem
 
-- [ ] driving the symbolic execution
+   - [x] driving the symbolic execution
 
-- [ ] combining theory solvers
+   - [ ] combining theory solvers
 
-- [ ] none of the above
+   - [ ] none of the above
