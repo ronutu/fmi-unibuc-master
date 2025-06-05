@@ -1,7 +1,7 @@
 Comenzi configurare echipamente:
 
-Router>en
-Router#conf term  --nivelul necesar pentru diferite setari
+en
+conf term  --nivelul necesar pentru diferite setari
 Router(config)#no ip domain-lookup  -- disable translatarea domain in ip (prevent the router from trying to resolve incorrectly pasted commands);
 Router(config)#service password-encryption --parolele sunt salvate criptat
 !!!Router(config)#security passwords min-length 10
