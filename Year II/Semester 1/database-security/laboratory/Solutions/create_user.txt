@@ -1,0 +1,6 @@
+create user secbd identified by secbd;
+grant connect, resource to secbd;
+
+GRANT EXECUTE ON dbms_crypto TO secbd;
+
+alter user secbd quota unlimited on users;
