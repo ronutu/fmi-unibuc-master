@@ -1,0 +1,499 @@
+-- a. Simple Encryption/Decryption Procedures
+-- Procedure to encrypt owner names using AES-128
+CREATE OR REPLACE PROCEDURE encrypt_owner_name(
+    p_owner_name IN VARCHAR2,
+    p_encrypted_name OUT RAW
+) AS
+    v_key VARCHAR2(16) := '1234567890123456'; -- 16 characters for AES-128
+    v_raw_text RAW(200);
+    v_raw_key RAW(16);
+    v_operation_mode PLS_INTEGER;
+BEGIN
+    -- Convert inputs to RAW
+    v_raw_text := UTL_I18N.string_to_raw(p_owner_name, 'AL32UTF8');
+    v_raw_key := UTL_I18N.string_to_raw(v_key, 'AL32UTF8');
+    
+    -- Set operation mode: AES-128 + PKCS5 padding + CBC chaining
+    v_operation_mode := DBMS_CRYPTO.ENCRYPT_AES128 + 
+                        DBMS_CRYPTO.PAD_PKCS5 + 
+                        DBMS_CRYPTO.CHAIN_CBC;
+    
+    -- Encrypt
+    p_encrypted_name := DBMS_CRYPTO.ENCRYPT(v_raw_text, v_operation_mode, v_raw_key);
+    
+    DBMS_OUTPUT.PUT_LINE('Original: ' || p_owner_name);
+    DBMS_OUTPUT.PUT_LINE('Encrypted (HEX): ' || RAWTOHEX(p_encrypted_name));
+END;
+/
+
+-- Procedure to decrypt owner names
+CREATE OR REPLACE PROCEDURE decrypt_owner_name(
+    p_encrypted_name IN RAW,
+    p_decrypted_name OUT VARCHAR2
+) AS
+    v_key VARCHAR2(16) := '1234567890123456';
+    v_raw_key RAW(16);
+    v_operation_mode PLS_INTEGER;
+    v_decrypted_raw RAW(200);
+BEGIN
+    -- Convert key to RAW
+    v_raw_key := UTL_I18N.string_to_raw(v_key, 'AL32UTF8');
+    
+    -- Set operation mode: AES-128 + PKCS5 padding + CBC chaining
+    v_operation_mode := DBMS_CRYPTO.ENCRYPT_AES128 + 
+                        DBMS_CRYPTO.PAD_PKCS5 + 
+                        DBMS_CRYPTO.CHAIN_CBC;
+    
+    -- Decrypt
+    v_decrypted_raw := DBMS_CRYPTO.DECRYPT(p_encrypted_name, v_operation_mode, v_raw_key);
+    
+    -- Convert back to VARCHAR2
+    p_decrypted_name := UTL_I18N.raw_to_char(v_decrypted_raw, 'AL32UTF8');
+    
+    DBMS_OUTPUT.PUT_LINE('Decrypted: ' || p_decrypted_name);
+END;
+/
+
+-- Test the encryption/decryption procedures
+DECLARE
+    v_encrypted RAW(200);
+    v_decrypted VARCHAR2(100);
+BEGIN
+    encrypt_owner_name('Giovanni Rossi', v_encrypted);
+    decrypt_owner_name(v_encrypted, v_decrypted);
+END;
+/
+
+-- b. Automated Encryption with Key Management
+-- Encrypts sensitive employee data with automatic key generation
+-- Create sequence for key management
+CREATE SEQUENCE seq_encryption_key START WITH 1 INCREMENT BY 1;
+
+-- Create table to store encryption keys
+CREATE TABLE encryption_keys (
+    key_id NUMBER PRIMARY KEY,
+    key_value RAW(16) NOT NULL,
+    key_name VARCHAR2(50) NOT NULL,
+    table_name VARCHAR2(50) NOT NULL,
+    created_date DATE DEFAULT SYSDATE
+);
+
+-- Create table to store encrypted employee data
+CREATE TABLE employees_encrypted (
+    employee_id NUMBER PRIMARY KEY,
+    name_encrypted RAW(200),
+    age_encrypted RAW(200),
+    gender_encrypted RAW(200),
+    team_id NUMBER,
+    encryption_method VARCHAR2(50)
+);
+
+-- Procedure to encrypt all employee data
+CREATE OR REPLACE PROCEDURE encrypt_employee_data AS
+    v_key RAW(16);
+    v_operation_mode PLS_INTEGER;
+    
+    -- Cursor to fetch employee data
+    CURSOR c_employees IS 
+        SELECT employee_id, name, age, gender, team_id 
+        FROM EMPLOYEE;
+    
+    v_raw_name RAW(200);
+    v_raw_age RAW(200);
+    v_raw_gender RAW(200);
+    
+    v_encrypted_name RAW(200);
+    v_encrypted_age RAW(200);
+    v_encrypted_gender RAW(200);
+BEGIN
+    -- Generate random encryption key (16 bytes for AES-128)
+    v_key := DBMS_CRYPTO.RANDOMBYTES(16);
+    
+    -- Store the key in the keys table
+    INSERT INTO encryption_keys (key_id, key_value, key_name, table_name)
+    VALUES (seq_encryption_key.NEXTVAL, v_key, 'EMPLOYEE_KEY', 'EMPLOYEE');
+    
+    -- Set operation mode
+    v_operation_mode := DBMS_CRYPTO.ENCRYPT_AES128 + 
+                        DBMS_CRYPTO.PAD_PKCS5 + 
+                        DBMS_CRYPTO.CHAIN_CBC;
+    
+    -- Encrypt each employee record
+    FOR rec IN c_employees LOOP
+        -- Convert to RAW
+        v_raw_name := UTL_I18N.string_to_raw(rec.name, 'AL32UTF8');
+        v_raw_age := UTL_I18N.string_to_raw(TO_CHAR(rec.age), 'AL32UTF8');
+        v_raw_gender := UTL_I18N.string_to_raw(rec.gender, 'AL32UTF8');
+        
+        -- Encrypt
+        v_encrypted_name := DBMS_CRYPTO.ENCRYPT(v_raw_name, v_operation_mode, v_key);
+        v_encrypted_age := DBMS_CRYPTO.ENCRYPT(v_raw_age, v_operation_mode, v_key);
+        v_encrypted_gender := DBMS_CRYPTO.ENCRYPT(v_raw_gender, v_operation_mode, v_key);
+        
+        -- Insert encrypted data
+        INSERT INTO employees_encrypted 
+        VALUES (rec.employee_id, v_encrypted_name, v_encrypted_age, 
+                v_encrypted_gender, rec.team_id, 'AES128-PKCS5-CBC');
+    END LOOP;
+    
+    COMMIT;
+    
+    DBMS_OUTPUT.PUT_LINE('Employee data encrypted successfully!');
+    DBMS_OUTPUT.PUT_LINE('Total employees encrypted: ' || SQL%ROWCOUNT);
+END;
+/
+
+-- Procedure to decrypt employee data
+CREATE OR REPLACE PROCEDURE decrypt_employee_data AS
+    v_key RAW(16);
+    v_operation_mode PLS_INTEGER;
+    
+    CURSOR c_encrypted IS 
+        SELECT employee_id, name_encrypted, age_encrypted, gender_encrypted, team_id
+        FROM employees_encrypted;
+    
+    v_decrypted_name VARCHAR2(100);
+    v_decrypted_age VARCHAR2(10);
+    v_decrypted_gender VARCHAR2(1);
+BEGIN
+    -- Retrieve the encryption key
+    SELECT key_value INTO v_key
+    FROM encryption_keys
+    WHERE key_name = 'EMPLOYEE_KEY'
+    AND table_name = 'EMPLOYEE'
+    ORDER BY created_date DESC
+    FETCH FIRST 1 ROW ONLY;
+    
+    -- Set operation mode
+    v_operation_mode := DBMS_CRYPTO.ENCRYPT_AES128 + 
+                        DBMS_CRYPTO.PAD_PKCS5 + 
+                        DBMS_CRYPTO.CHAIN_CBC;
+    
+    DBMS_OUTPUT.PUT_LINE('=== Decrypted Employee Data ===');
+    DBMS_OUTPUT.PUT_LINE('');
+    
+    -- Decrypt each employee record
+    FOR rec IN c_encrypted LOOP
+        -- Decrypt
+        v_decrypted_name := UTL_I18N.raw_to_char(
+            DBMS_CRYPTO.DECRYPT(rec.name_encrypted, v_operation_mode, v_key), 
+            'AL32UTF8'
+        );
+        
+        v_decrypted_age := UTL_I18N.raw_to_char(
+            DBMS_CRYPTO.DECRYPT(rec.age_encrypted, v_operation_mode, v_key), 
+            'AL32UTF8'
+        );
+        
+        v_decrypted_gender := UTL_I18N.raw_to_char(
+            DBMS_CRYPTO.DECRYPT(rec.gender_encrypted, v_operation_mode, v_key), 
+            'AL32UTF8'
+        );
+        
+        -- Display decrypted data
+        DBMS_OUTPUT.PUT_LINE('Employee ID: ' || rec.employee_id || 
+                           ' | Name: ' || v_decrypted_name || 
+                           ' | Age: ' || v_decrypted_age || 
+                           ' | Gender: ' || v_decrypted_gender);
+    END LOOP;
+END;
+/
+
+-- Execute encryption
+EXECUTE encrypt_employee_data;
+
+-- View encrypted data (appears as RAW hexadecimal)
+SELECT employee_id, 
+       RAWTOHEX(name_encrypted) as name_hex,
+       RAWTOHEX(age_encrypted) as age_hex,
+       team_id
+FROM employees_encrypted
+WHERE ROWNUM <= 5;
+
+-- View stored encryption keys
+SELECT key_id, key_name, table_name, 
+       RAWTOHEX(key_value) as key_hex,
+       created_date
+FROM encryption_keys;
+
+-- Decrypt and display
+EXECUTE decrypt_employee_data;
+
+-- c. Hybrid Key Encryption (Master Key + Row Key)
+-- Different key for each plate
+-- Create table to store master key
+CREATE TABLE master_keys (
+    master_key_id NUMBER PRIMARY KEY,
+    key_value RAW(16) NOT NULL,
+    created_date DATE DEFAULT SYSDATE
+);
+
+-- Create table for encrypted plate prices
+CREATE TABLE plates_encrypted (
+    plate_id NUMBER PRIMARY KEY,
+    name VARCHAR2(100),
+    price_encrypted RAW(200),
+    row_key RAW(16), -- Individual key for each plate
+    menu_id NUMBER
+);
+
+-- Procedure to encrypt plate prices using hybrid keys
+CREATE OR REPLACE PROCEDURE encrypt_plate_prices AS
+    v_master_key RAW(16);
+    v_row_key RAW(16);
+    v_hybrid_key RAW(16);
+    v_operation_mode PLS_INTEGER;
+    
+    CURSOR c_plates IS 
+        SELECT plate_id, name, price, menu_id 
+        FROM PLATE;
+    
+    v_raw_price RAW(200);
+    v_encrypted_price RAW(200);
+BEGIN
+    -- Generate master key
+    v_master_key := DBMS_CRYPTO.RANDOMBYTES(16);
+    
+    -- Store master key
+    INSERT INTO master_keys (master_key_id, key_value)
+    VALUES (seq_encryption_key.NEXTVAL, v_master_key);
+    
+    -- Set operation mode
+    v_operation_mode := DBMS_CRYPTO.ENCRYPT_AES128 + 
+                        DBMS_CRYPTO.PAD_PKCS5 + 
+                        DBMS_CRYPTO.CHAIN_CBC;
+    
+    -- Encrypt each plate's price
+    FOR rec IN c_plates LOOP
+        -- Generate unique row key for this plate
+        v_row_key := DBMS_CRYPTO.RANDOMBYTES(16);
+        
+        -- Create hybrid key: master_key XOR row_key
+        v_hybrid_key := UTL_RAW.BIT_XOR(v_master_key, v_row_key);
+        
+        -- Convert price to RAW
+        v_raw_price := UTL_I18N.string_to_raw(TO_CHAR(rec.price), 'AL32UTF8');
+        
+        -- Encrypt with hybrid key
+        v_encrypted_price := DBMS_CRYPTO.ENCRYPT(v_raw_price, v_operation_mode, v_hybrid_key);
+        
+        -- Store encrypted data with row key
+        INSERT INTO plates_encrypted 
+        VALUES (rec.plate_id, rec.name, v_encrypted_price, v_row_key, rec.menu_id);
+    END LOOP;
+    
+    COMMIT;
+    
+    DBMS_OUTPUT.PUT_LINE('Plate prices encrypted with hybrid keys!');
+    DBMS_OUTPUT.PUT_LINE('Total plates encrypted: ' || SQL%ROWCOUNT);
+END;
+/
+
+-- Procedure to decrypt plate prices
+CREATE OR REPLACE PROCEDURE decrypt_plate_prices AS
+    v_master_key RAW(16);
+    v_hybrid_key RAW(16);
+    v_operation_mode PLS_INTEGER;
+    
+    CURSOR c_encrypted IS 
+        SELECT plate_id, name, price_encrypted, row_key, menu_id
+        FROM plates_encrypted;
+    
+    v_decrypted_price VARCHAR2(20);
+BEGIN
+    -- Retrieve master key
+    SELECT key_value INTO v_master_key
+    FROM master_keys
+    ORDER BY created_date DESC
+    FETCH FIRST 1 ROW ONLY;
+    
+    -- Set operation mode
+    v_operation_mode := DBMS_CRYPTO.ENCRYPT_AES128 + 
+                        DBMS_CRYPTO.PAD_PKCS5 + 
+                        DBMS_CRYPTO.CHAIN_CBC;
+    
+    DBMS_OUTPUT.PUT_LINE('=== Decrypted Plate Prices ===');
+    DBMS_OUTPUT.PUT_LINE('');
+    
+    -- Decrypt each plate
+    FOR rec IN c_encrypted LOOP
+        -- Recreate hybrid key
+        v_hybrid_key := UTL_RAW.BIT_XOR(v_master_key, rec.row_key);
+        
+        -- Decrypt price
+        v_decrypted_price := UTL_I18N.raw_to_char(
+            DBMS_CRYPTO.DECRYPT(rec.price_encrypted, v_operation_mode, v_hybrid_key),
+            'AL32UTF8'
+        );
+        
+        DBMS_OUTPUT.PUT_LINE('Plate: ' || rec.name || ' | Price: $' || v_decrypted_price);
+    END LOOP;
+END;
+/
+
+-- Execute hybrid encryption
+EXECUTE encrypt_plate_prices;
+
+-- View encrypted prices
+SELECT plate_id, name, 
+       RAWTOHEX(SUBSTR(price_encrypted, 1, 20)) as price_hex_preview,
+       menu_id
+FROM plates_encrypted
+WHERE ROWNUM <= 5;
+
+-- Decrypt and display
+EXECUTE decrypt_plate_prices;
+
+-- d. Data Integrity with Hashing
+-- Create table to store hash values
+CREATE TABLE plate_integrity (
+    plate_id NUMBER PRIMARY KEY,
+    plate_name VARCHAR2(100),
+    original_hash RAW(32),
+    check_date DATE DEFAULT SYSDATE
+);
+
+-- Function to compute hash of a plate record
+CREATE OR REPLACE FUNCTION compute_plate_hash(p_plate_id NUMBER) 
+RETURN RAW IS
+    v_plate PLATE%ROWTYPE;
+    v_hash RAW(32);
+    v_concat_data VARCHAR2(500);
+BEGIN
+    -- Get plate data
+    SELECT * INTO v_plate 
+    FROM PLATE 
+    WHERE plate_id = p_plate_id;
+    
+    -- Concatenate all fields
+    v_concat_data := v_plate.plate_id || v_plate.name || 
+                     v_plate.price || v_plate.weight || v_plate.menu_id;
+    
+    -- Compute SHA-256 hash
+    v_hash := DBMS_CRYPTO.HASH(
+        UTL_RAW.CAST_TO_RAW(v_concat_data),
+        DBMS_CRYPTO.HASH_SH256
+    );
+    
+    RETURN v_hash;
+END;
+/
+
+-- Store hashes for all plates
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('=== Computing and Storing Hashes ===');
+    
+    FOR rec IN (SELECT plate_id, name FROM PLATE) LOOP
+        INSERT INTO plate_integrity (plate_id, plate_name, original_hash)
+        VALUES (rec.plate_id, rec.name, compute_plate_hash(rec.plate_id));
+    END LOOP;
+    
+    COMMIT;
+    
+    DBMS_OUTPUT.PUT_LINE('Hashes stored for all plates!');
+END;
+/
+
+-- Procedure to verify data integrity
+CREATE OR REPLACE PROCEDURE verify_plate_integrity AS
+    v_current_hash RAW(32);
+    v_stored_hash RAW(32);
+    v_tampered_count NUMBER := 0;
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('=== Verifying Plate Data Integrity ===');
+    DBMS_OUTPUT.PUT_LINE('');
+    
+    FOR rec IN (SELECT plate_id, plate_name, original_hash FROM plate_integrity) LOOP
+        -- Compute current hash
+        v_current_hash := compute_plate_hash(rec.plate_id);
+        v_stored_hash := rec.original_hash;
+        
+        -- Compare hashes
+        IF v_current_hash != v_stored_hash THEN
+            DBMS_OUTPUT.PUT_LINE('ALERT: Data tampered for Plate ID ' || rec.plate_id || 
+                               ' (' || rec.plate_name || ')');
+            v_tampered_count := v_tampered_count + 1;
+        END IF;
+    END LOOP;
+    
+    IF v_tampered_count = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('SUCCESS: All plate data is intact!');
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('WARNING: ' || v_tampered_count || ' plates have been modified!');
+    END IF;
+END;
+/
+
+-- Verify integrity (should show all OK)
+EXECUTE verify_plate_integrity;
+
+-- Simulate data tampering
+UPDATE PLATE 
+SET price = 999.99 
+WHERE plate_id = 1;
+
+-- Verify again (should detect tampering)
+EXECUTE verify_plate_integrity;
+
+-- Rollback the change
+ROLLBACK;
+
+-- e. Demonstration of Security Benefits
+-- Show that encrypted data is unreadable without the key
+SELECT 'Original Data' as data_type, employee_id, name, age
+FROM EMPLOYEE
+WHERE ROWNUM <= 3
+UNION ALL
+SELECT 'Encrypted Data', employee_id, 
+       SUBSTR(RAWTOHEX(name_encrypted), 1, 20) || '...', 
+       TO_NUMBER(NULL)
+FROM employees_encrypted
+WHERE ROWNUM <= 3;
+
+-- Demonstrate that modifying encrypted data corrupts it
+DECLARE
+    v_original_encrypted RAW(200);
+    v_tampered_encrypted RAW(200);
+    v_decrypted VARCHAR2(100);
+    v_key RAW(16);
+    v_operation_mode PLS_INTEGER;
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('=== Demonstrating Encryption Security ===');
+    DBMS_OUTPUT.PUT_LINE('');
+    
+    -- Get encrypted data and key
+    SELECT name_encrypted INTO v_original_encrypted
+    FROM employees_encrypted
+    WHERE employee_id = 1;
+    
+    SELECT key_value INTO v_key
+    FROM encryption_keys
+    WHERE key_name = 'EMPLOYEE_KEY'
+    ORDER BY created_date DESC
+    FETCH FIRST 1 ROW ONLY;
+    
+    v_operation_mode := DBMS_CRYPTO.ENCRYPT_AES128 + 
+                        DBMS_CRYPTO.PAD_PKCS5 + 
+                        DBMS_CRYPTO.CHAIN_CBC;
+    
+    -- Show successful decryption with correct key
+    v_decrypted := UTL_I18N.raw_to_char(
+        DBMS_CRYPTO.DECRYPT(v_original_encrypted, v_operation_mode, v_key),
+        'AL32UTF8'
+    );
+    DBMS_OUTPUT.PUT_LINE('With correct key: ' || v_decrypted);
+    
+    -- Show failed decryption with wrong key
+    BEGIN
+        v_decrypted := UTL_I18N.raw_to_char(
+            DBMS_CRYPTO.DECRYPT(v_original_encrypted, v_operation_mode, 
+                               DBMS_CRYPTO.RANDOMBYTES(16)),
+            'AL32UTF8'
+        );
+        DBMS_OUTPUT.PUT_LINE('With wrong key: ' || v_decrypted);
+    EXCEPTION
+        WHEN OTHERS THEN
+            DBMS_OUTPUT.PUT_LINE('With wrong key: DECRYPTION FAILED - Data is protected!');
+    END;
+END;
+/

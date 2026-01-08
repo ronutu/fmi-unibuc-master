@@ -1,0 +1,21 @@
+Pentru testare optiuni disponibile per versiune SGBD si lucrul in cadrul laboratoarelor de DW&BI aveti la dispozitie 3 masini virtuale pe care au fost instalate versiuni diferite de Oracle Database Server (Enterprise Edition): 
+
+- Database Oracle 19c 
+    Username: master_dw_if
+    Password: <specificata la laborator>  
+    Hostname : 193.226.53.52
+    Service name: db1
+
+- Database Oracle 21c
+    Username: master_dw_if
+    Password: <specificata la laborator>  
+    Hostname : 193.226.53.53
+    Service name: db2
+
+- Database Oracle 23AI
+    Username: c##master_dw_if
+    Password: <specificata la laborator>  
+    Hostname : 193.226.53.61
+    Service name: free
+
+ 

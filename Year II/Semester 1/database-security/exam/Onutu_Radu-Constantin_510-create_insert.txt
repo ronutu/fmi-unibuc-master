@@ -1,0 +1,253 @@
+CREATE TABLE COUNTRY (
+    country_id INT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    area INT
+);
+
+CREATE TABLE CITY (
+    city_id INT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    population INT,
+    country_id INT NOT NULL,
+    CONSTRAINT fk_city_country FOREIGN KEY (country_id) REFERENCES COUNTRY(country_id)
+);
+
+CREATE TABLE OWNER (
+    owner_id INT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    city_id INT NOT NULL,
+    CONSTRAINT fk_owner_city FOREIGN KEY (city_id) REFERENCES CITY(city_id)
+);
+
+CREATE TABLE PIZZERIA (
+    pizzeria_id INT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    owner_id INT NOT NULL UNIQUE,
+    CONSTRAINT fk_pizzeria_owner FOREIGN KEY (owner_id) REFERENCES OWNER(owner_id)
+);
+
+CREATE TABLE MENU (
+    menu_id INT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    pizzeria_id INT NOT NULL,
+    CONSTRAINT fk_menu_pizzeria FOREIGN KEY (pizzeria_id) REFERENCES PIZZERIA(pizzeria_id)
+);
+
+CREATE TABLE PLATE (
+    plate_id INT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    price NUMBER(10,2) NOT NULL,
+    weight INT,
+    menu_id INT NOT NULL,
+    CONSTRAINT fk_plate_menu FOREIGN KEY (menu_id) REFERENCES MENU(menu_id)
+);
+
+CREATE TABLE DEPARTMENT (
+    department_id INT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    pizzeria_id INT NOT NULL,
+    CONSTRAINT fk_department_pizzeria FOREIGN KEY (pizzeria_id) REFERENCES PIZZERIA(pizzeria_id)
+);
+
+CREATE TABLE TEAM (
+    team_id INT PRIMARY KEY,
+    role VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE DEPARTMENT_TEAM_MAPPING (
+    department_id INT,
+    team_id INT,
+    CONSTRAINT pk_dept_team PRIMARY KEY (department_id, team_id),
+    CONSTRAINT fk_mapping_department FOREIGN KEY (department_id) REFERENCES DEPARTMENT(department_id),
+    CONSTRAINT fk_mapping_team FOREIGN KEY (team_id) REFERENCES TEAM(team_id)
+);
+
+CREATE TABLE EMPLOYEE (
+    employee_id INT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    age INT,
+    gender VARCHAR(1) CHECK (gender IN ('M', 'F')),
+    team_id INT NOT NULL,
+    CONSTRAINT fk_employee_team FOREIGN KEY (team_id) REFERENCES TEAM(team_id)
+);
+
+CREATE SEQUENCE seq_country START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE seq_city START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE seq_owner START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE seq_pizzeria START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE seq_menu START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE seq_plate START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE seq_department START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE seq_team START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE seq_employee START WITH 1 INCREMENT BY 1;
+
+INSERT INTO COUNTRY (country_id, name, area) VALUES (1, 'Italy', 301340);
+INSERT INTO COUNTRY (country_id, name, area) VALUES (2, 'United States', 9833520);
+INSERT INTO COUNTRY (country_id, name, area) VALUES (3, 'France', 643801);
+INSERT INTO COUNTRY (country_id, name, area) VALUES (4, 'Spain', 505990);
+INSERT INTO COUNTRY (country_id, name, area) VALUES (5, 'Romania', 238397);
+
+INSERT INTO CITY (city_id, name, population, country_id) VALUES (1, 'Rome', 2873000, 1);
+INSERT INTO CITY (city_id, name, population, country_id) VALUES (2, 'Milan', 1352000, 1);
+INSERT INTO CITY (city_id, name, population, country_id) VALUES (3, 'Naples', 967000, 1);
+INSERT INTO CITY (city_id, name, population, country_id) VALUES (4, 'New York', 8336000, 2);
+INSERT INTO CITY (city_id, name, population, country_id) VALUES (5, 'Los Angeles', 3979000, 2);
+INSERT INTO CITY (city_id, name, population, country_id) VALUES (6, 'Paris', 2161000, 3);
+INSERT INTO CITY (city_id, name, population, country_id) VALUES (7, 'Barcelona', 1621000, 4);
+INSERT INTO CITY (city_id, name, population, country_id) VALUES (8, 'Bucharest', 1883000, 5);
+INSERT INTO CITY (city_id, name, population, country_id) VALUES (9, 'Cluj-Napoca', 324000, 5);
+
+INSERT INTO OWNER (owner_id, name, city_id) VALUES (1, 'Giovanni Rossi', 1);
+INSERT INTO OWNER (owner_id, name, city_id) VALUES (2, 'Maria Bianchi', 2);
+INSERT INTO OWNER (owner_id, name, city_id) VALUES (3, 'Antonio Esposito', 3);
+INSERT INTO OWNER (owner_id, name, city_id) VALUES (4, 'John Smith', 4);
+INSERT INTO OWNER (owner_id, name, city_id) VALUES (5, 'Emily Davis', 5);
+INSERT INTO OWNER (owner_id, name, city_id) VALUES (6, 'Pierre Dubois', 6);
+INSERT INTO OWNER (owner_id, name, city_id) VALUES (7, 'Carlos Garcia', 7);
+INSERT INTO OWNER (owner_id, name, city_id) VALUES (8, 'Ion Popescu', 8);
+
+INSERT INTO PIZZERIA (pizzeria_id, name, owner_id) VALUES (1, 'Bella Napoli Roma', 1);
+INSERT INTO PIZZERIA (pizzeria_id, name, owner_id) VALUES (2, 'Milano Pizza House', 2);
+INSERT INTO PIZZERIA (pizzeria_id, name, owner_id) VALUES (3, 'Napoli Express', 3);
+INSERT INTO PIZZERIA (pizzeria_id, name, owner_id) VALUES (4, 'NY Slice Paradise', 4);
+INSERT INTO PIZZERIA (pizzeria_id, name, owner_id) VALUES (5, 'LA Pizza Corner', 5);
+INSERT INTO PIZZERIA (pizzeria_id, name, owner_id) VALUES (6, 'Le Pizzaiolo', 6);
+INSERT INTO PIZZERIA (pizzeria_id, name, owner_id) VALUES (7, 'Barcelona Pizza', 7);
+INSERT INTO PIZZERIA (pizzeria_id, name, owner_id) VALUES (8, 'Pizza Romana Bucharest', 8);
+
+INSERT INTO MENU (menu_id, name, pizzeria_id) VALUES (1, 'Classic Italian Menu', 1);
+INSERT INTO MENU (menu_id, name, pizzeria_id) VALUES (2, 'Gourmet Selection', 1);
+INSERT INTO MENU (menu_id, name, pizzeria_id) VALUES (3, 'Traditional Menu', 2);
+INSERT INTO MENU (menu_id, name, pizzeria_id) VALUES (4, 'Neapolitan Classics', 3);
+INSERT INTO MENU (menu_id, name, pizzeria_id) VALUES (5, 'American Favorites', 4);
+INSERT INTO MENU (menu_id, name, pizzeria_id) VALUES (6, 'West Coast Special', 5);
+INSERT INTO MENU (menu_id, name, pizzeria_id) VALUES (7, 'French-Italian Fusion', 6);
+INSERT INTO MENU (menu_id, name, pizzeria_id) VALUES (8, 'Mediterranean Menu', 7);
+INSERT INTO MENU (menu_id, name, pizzeria_id) VALUES (9, 'Romanian Specials', 8);
+
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (1, 'Margherita', 8.50, 350, 1);
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (2, 'Quattro Formaggi', 11.00, 380, 1);
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (3, 'Capricciosa', 12.50, 400, 1);
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (4, 'Tiramisu', 6.00, 150, 1);
+
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (5, 'Truffle Pizza', 18.00, 350, 2);
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (6, 'Prosciutto e Rucola', 14.50, 370, 2);
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (7, 'Burrata Special', 16.00, 360, 2);
+
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (8, 'Pizza Napoletana', 9.00, 340, 3);
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (9, 'Calzone', 10.50, 420, 3);
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (10, 'Focaccia', 5.50, 250, 3);
+
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (11, 'Pizza Marinara', 7.50, 330, 4);
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (12, 'Diavola', 11.50, 360, 4);
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (13, 'Panna Cotta', 5.50, 120, 4);
+
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (14, 'Pepperoni Supreme', 13.00, 450, 5);
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (15, 'BBQ Chicken', 14.00, 480, 5);
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (16, 'Meat Lovers', 15.50, 500, 5);
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (17, 'Buffalo Wings', 9.00, 300, 5);
+
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (18, 'California Pizza', 13.50, 400, 6);
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (19, 'Veggie Delight', 12.00, 380, 6);
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (20, 'Hawaiian', 12.50, 390, 6);
+
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (21, 'Ratatouille Pizza', 14.50, 370, 7);
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (22, 'Brie and Fig', 15.00, 340, 7);
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (23, 'Creme Brulee', 7.00, 140, 7);
+
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (24, 'Greek Style Pizza', 12.50, 380, 8);
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (25, 'Seafood Pizza', 16.00, 410, 8);
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (26, 'Baklava', 6.50, 130, 8);
+
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (27, 'Pizza cu Sunca', 10.00, 370, 9);
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (28, 'Four Seasons', 13.00, 400, 9);
+INSERT INTO PLATE (plate_id, name, price, weight, menu_id) VALUES (29, 'Papanasi', 5.00, 180, 9);
+
+INSERT INTO DEPARTMENT (department_id, name, pizzeria_id) VALUES (1, 'Kitchen', 1);
+INSERT INTO DEPARTMENT (department_id, name, pizzeria_id) VALUES (2, 'Service', 1);
+INSERT INTO DEPARTMENT (department_id, name, pizzeria_id) VALUES (3, 'Management', 1);
+INSERT INTO DEPARTMENT (department_id, name, pizzeria_id) VALUES (4, 'Kitchen', 2);
+INSERT INTO DEPARTMENT (department_id, name, pizzeria_id) VALUES (5, 'Service', 2);
+INSERT INTO DEPARTMENT (department_id, name, pizzeria_id) VALUES (6, 'Kitchen', 3);
+INSERT INTO DEPARTMENT (department_id, name, pizzeria_id) VALUES (7, 'Service', 3);
+INSERT INTO DEPARTMENT (department_id, name, pizzeria_id) VALUES (8, 'Kitchen', 4);
+INSERT INTO DEPARTMENT (department_id, name, pizzeria_id) VALUES (9, 'Delivery', 4);
+INSERT INTO DEPARTMENT (department_id, name, pizzeria_id) VALUES (10, 'Kitchen', 5);
+INSERT INTO DEPARTMENT (department_id, name, pizzeria_id) VALUES (11, 'Service', 6);
+INSERT INTO DEPARTMENT (department_id, name, pizzeria_id) VALUES (12, 'Kitchen', 7);
+INSERT INTO DEPARTMENT (department_id, name, pizzeria_id) VALUES (13, 'Kitchen', 8);
+INSERT INTO DEPARTMENT (department_id, name, pizzeria_id) VALUES (14, 'Service', 8);
+
+INSERT INTO TEAM (team_id, role) VALUES (1, 'Pizza Chef');
+INSERT INTO TEAM (team_id, role) VALUES (2, 'Prep Cook');
+INSERT INTO TEAM (team_id, role) VALUES (3, 'Waiter');
+INSERT INTO TEAM (team_id, role) VALUES (4, 'Bartender');
+INSERT INTO TEAM (team_id, role) VALUES (5, 'Manager');
+INSERT INTO TEAM (team_id, role) VALUES (6, 'Delivery Driver');
+INSERT INTO TEAM (team_id, role) VALUES (7, 'Host');
+INSERT INTO TEAM (team_id, role) VALUES (8, 'Pastry Chef');
+
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (1, 1);
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (1, 2);
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (1, 8);
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (2, 3);
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (2, 4);
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (2, 7);
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (3, 5);
+
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (4, 1);
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (4, 2);
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (5, 3);
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (5, 7);
+
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (6, 1);
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (6, 2);
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (7, 3);
+
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (8, 1);
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (8, 2);
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (9, 6);
+
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (10, 1);
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (10, 2);
+
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (11, 3);
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (11, 4);
+
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (12, 1);
+
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (13, 1);
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (13, 2);
+INSERT INTO DEPARTMENT_TEAM_MAPPING (department_id, team_id) VALUES (14, 3);
+
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (1, 'Marco Ferrari', 35, 'M', 1);
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (2, 'Luigi Russo', 42, 'M', 1);
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (3, 'Franco Colombo', 38, 'M', 1);
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (4, 'Giuseppe Romano', 45, 'M', 1);
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (5, 'Valentina Ricci', 31, 'F', 1);
+
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (6, 'Andrea Conti', 28, 'M', 2);
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (7, 'Sara Marino', 26, 'F', 2);
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (8, 'Luca Greco', 24, 'M', 2);
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (9, 'Elena Bruno', 29, 'F', 2);
+
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (10, 'Francesca Gallo', 23, 'F', 3);
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (11, 'Roberto Costa', 27, 'M', 3);
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (12, 'Giulia Mancini', 25, 'F', 3);
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (13, 'Alessandro Villa', 30, 'M', 3);
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (14, 'Chiara Lombardi', 22, 'F', 3);
+
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (15, 'Matteo Moretti', 32, 'M', 4);
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (16, 'Simone Barbieri', 29, 'M', 4);
+
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (17, 'Leonardo Fontana', 48, 'M', 5);
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (18, 'Cristina Santoro', 44, 'F', 5);
+
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (19, 'David Miller', 26, 'M', 6);
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (20, 'James Brown', 24, 'M', 6);
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (21, 'Michael Johnson', 28, 'M', 6);
+
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (22, 'Sofia Rizzo', 21, 'F', 7);
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (23, 'Anna Caruso', 23, 'F', 7);
+
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id) VALUES (24, 'Paolo Serra', 40, 'M', 8);
