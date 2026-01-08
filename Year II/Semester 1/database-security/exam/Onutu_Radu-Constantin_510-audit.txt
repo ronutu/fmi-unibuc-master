@@ -1,572 +1,329 @@
--- a. STANDARD AUDITING
 
--- Check current audit trail configuration
-SELECT value FROM v$parameter WHERE name='audit_trail';
+-- Run as SYSDBA
+-- Check current container
+SHOW CON_NAME;
 
--- Audit all SELECT statements on tables
--- Enable auditing for all SELECT operations
-AUDIT SELECT TABLE;
+-- Switch to CDB$ROOT if needed
+ALTER SESSION SET CONTAINER=CDB$ROOT;
 
--- Verify audit is enabled
-SELECT audit_option, success, failure
-FROM dba_stmt_audit_opts;
+-- Check audit trail configuration
+SHOW PARAMETER audit_trail;
 
--- Audit DML operations on specific pizzeria tables
--- Audit all operations on PLATE table (price changes are sensitive)
-AUDIT SELECT, INSERT, UPDATE, DELETE ON PLATE;
+-- Set to DB, EXTENDED if not already (requires restart)
+-- ALTER SYSTEM SET audit_trail=DB,EXTENDED SCOPE=SPFILE;
+-- Then restart database and open pluggable database:
+-- ALTER PLUGGABLE DATABASE ORCLPDB OPEN;
 
--- Audit all operations on EMPLOYEE table (personal data)
-AUDIT SELECT, INSERT, UPDATE, DELETE ON EMPLOYEE;
+-- Switch back to working container
+ALTER SESSION SET CONTAINER=ORCLPDB;
 
--- Audit all operations on OWNER table (owner information)
-AUDIT SELECT, INSERT, UPDATE, DELETE ON OWNER;
+-- ========== a. STANDARD AUDITING
+-- Run as PIZZERIA_USER
 
--- Audit failed operations on MENU table
-AUDIT INSERT, UPDATE, DELETE ON MENU WHENEVER NOT SUCCESSFUL;
+-- Enable Standard Audit for Sensitive Tables
+-- Audit all DML operations on PLATE table (prices are sensitive)
+AUDIT INSERT, UPDATE, DELETE ON PLATE;
 
--- Verify object-specific audits
-SELECT owner, object_name, sel, ins, upd, del
-FROM dba_obj_audit_opts
-WHERE object_name IN ('PLATE', 'EMPLOYEE', 'OWNER', 'MENU');
+-- Audit all DML operations on EMPLOYEE table (personal data)
+AUDIT INSERT, UPDATE, DELETE ON EMPLOYEE;
 
--- Audit privilege usage
--- Audit when users create tables (DDL)
-AUDIT TABLE;
+-- Audit all DML operations on OWNER table (owner information)
+AUDIT INSERT, UPDATE, DELETE ON OWNER;
 
--- Audit when users create or drop procedures (PROCEDURE covers both CREATE and DROP)
-AUDIT PROCEDURE;
+-- Audit all DML operations on PIZZERIA table (business data)
+AUDIT INSERT, UPDATE, DELETE ON PIZZERIA;
 
--- Query audit trail to generate reports
+-- Audit all DML operations on MENU table
+AUDIT INSERT, UPDATE, DELETE ON MENU;
+
+
+-- Verify Audits are Enabled
+-- Show the main DML operations
+SELECT object_name, sel, ins, upd, del
+FROM user_obj_audit_opts
+WHERE object_name IN ('PLATE', 'EMPLOYEE', 'OWNER', 'MENU', 'PIZZERIA');
+
+-- Perform Operations to Generate Audit Trail
+-- Update plate prices
+UPDATE PLATE 
+SET price = 12.99 
+WHERE plate_id = 1;
+
+-- Insert new employee
+INSERT INTO EMPLOYEE (employee_id, name, age, gender, team_id)
+VALUES (100, 'Test Employee', 30, 'M', 1);
+
+-- Delete test employee
+DELETE FROM EMPLOYEE WHERE employee_id = 100;
+
+-- Update owner information
+UPDATE OWNER 
+SET name = 'Giovanni Rossi Updated'
+WHERE owner_id = 1;
+
+-- Rollback changes
+ROLLBACK;
+
+
+-- View Audit Trail
 -- View recent audit records
-SELECT username, obj_name, action_name, timestamp, sql_text
-FROM dba_audit_trail
+SELECT username, obj_name, action_name,
+       TO_CHAR(timestamp, 'YYYY-MM-DD HH24:MI:SS') as audit_time,
+       SUBSTR(sql_text, 1, 80) as sql_snippet
+FROM user_audit_trail
 WHERE obj_name IN ('PLATE', 'EMPLOYEE', 'OWNER', 'MENU', 'PIZZERIA')
 ORDER BY timestamp DESC
 FETCH FIRST 20 ROWS ONLY;
 
--- Audit report: Count queries by user and table
-SELECT username,
-       owner,
-       obj_name,
-       COUNT(*) AS query_count
-FROM dba_audit_trail
-WHERE obj_name IN ('PLATE', 'EMPLOYEE', 'PIZZERIA', 'MENU', 'OWNER')
-GROUP BY ROLLUP (username, (owner, obj_name))
-ORDER BY username NULLS LAST, query_count DESC;
+-- Count operations by table
+SELECT obj_name, action_name, COUNT(*) as operation_count
+FROM user_audit_trail
+WHERE obj_name IN ('PLATE', 'EMPLOYEE', 'OWNER', 'MENU', 'PIZZERIA')
+GROUP BY obj_name, action_name
+ORDER BY obj_name, operation_count DESC;
 
--- Report: Failed DML operations (security incidents)
-SELECT username, obj_name, action_name, timestamp, returncode, sql_text
-FROM dba_audit_trail
-WHERE returncode != 0  -- Non-zero means failed
-  AND obj_name IN ('PLATE', 'EMPLOYEE', 'OWNER', 'MENU')
-ORDER BY timestamp DESC;
+-- Stop Standard Auditing
+NOAUDIT INSERT, UPDATE, DELETE ON PLATE;
+NOAUDIT INSERT, UPDATE, DELETE ON EMPLOYEE;
+NOAUDIT INSERT, UPDATE, DELETE ON OWNER;
+NOAUDIT INSERT, UPDATE, DELETE ON PIZZERIA;
+NOAUDIT INSERT, UPDATE, DELETE ON MENU;
 
--- Stop auditing (cleanup)
--- To stop specific audits (uncomment when needed):
-NOAUDIT SELECT TABLE;
-NOAUDIT ALL ON PLATE;
-NOAUDIT ALL ON EMPLOYEE;
-NOAUDIT ALL ON OWNER;
-NOAUDIT ALL ON MENU;
+-- ========== b. AUDIT TRIGGERS
+-- Run as PIZZERIA_USER
 
--- b. AUDIT TRIGGERS
--- Create audit table for trigger-based auditing
--- Drop existing objects if they exist
-DROP SEQUENCE seq_pizzeria_audit;
-DROP TABLE pizzeria_audit_log CASCADE CONSTRAINTS;
+-- Create Audit Infrastructure
+-- Create sequence for audit IDs
+CREATE SEQUENCE seq_audit_pizzeria START WITH 1 INCREMENT BY 1;
 
--- Create audit log table
-CREATE TABLE pizzeria_audit_log (
-    audit_id NUMBER PRIMARY KEY,
-    table_name VARCHAR2(50),
+-- Create audit table
+CREATE TABLE audit_historic (
+    id_audit NUMBER PRIMARY KEY,
+    user_ VARCHAR2(30),
+    session_ NUMBER(10),
+    host_ VARCHAR2(100),
+    time_ DATE,
+    table_name VARCHAR2(30),
     operation VARCHAR2(20),
-    username VARCHAR2(50),
-    session_id NUMBER,
-    host VARCHAR2(100),
-    audit_timestamp DATE,
-    rows_affected NUMBER,
     old_value VARCHAR2(500),
-    new_value VARCHAR2(500),
-    sql_text VARCHAR2(4000)
+    new_value VARCHAR2(500)
 );
 
--- Create sequence for audit IDs
-CREATE SEQUENCE seq_pizzeria_audit START WITH 1 INCREMENT BY 1;
-
--- Trigger to audit PLATE price changes
-CREATE OR REPLACE TRIGGER audit_plate_price_changes
+-- Create Audit Trigger
+-- Audit PLATE price changes
+CREATE OR REPLACE TRIGGER audit_trigger_plate_price
 AFTER UPDATE OF price ON PLATE
 FOR EACH ROW
 BEGIN
-    INSERT INTO pizzeria_audit_log (
-        audit_id,
-        table_name,
-        operation,
-        username,
-        session_id,
-        host,
-        audit_timestamp,
-        rows_affected,
-        old_value,
-        new_value
-    ) VALUES (
-        seq_pizzeria_audit.NEXTVAL,
-        'PLATE',
-        'UPDATE PRICE',
+    INSERT INTO audit_historic VALUES (
+        seq_audit_pizzeria.NEXTVAL,
         SYS_CONTEXT('USERENV', 'SESSION_USER'),
         SYS_CONTEXT('USERENV', 'SESSIONID'),
         SYS_CONTEXT('USERENV', 'HOST'),
         SYSDATE,
-        1,
+        'PLATE',
+        'UPDATE PRICE',
         'Plate: ' || :OLD.name || ', Old Price: ' || :OLD.price,
         'Plate: ' || :NEW.name || ', New Price: ' || :NEW.price
     );
 END;
-/
 
--- ========================================
--- 3b.3: Trigger to audit EMPLOYEE deletions (with row count)
--- ========================================
-
--- Before trigger to count records before deletion
-CREATE OR REPLACE TRIGGER audit_employee_delete_before
-BEFORE DELETE ON EMPLOYEE
-DECLARE
-    v_count_before NUMBER;
-BEGIN
-    -- Count employees before deletion
-    SELECT COUNT(*) INTO v_count_before FROM EMPLOYEE;
-    
-    -- Store count in audit table with temporary marker
-    INSERT INTO pizzeria_audit_log (
-        audit_id,
-        table_name,
-        operation,
-        username,
-        session_id,
-        host,
-        audit_timestamp,
-        rows_affected
-    ) VALUES (
-        seq_pizzeria_audit.NEXTVAL,
-        'EMPLOYEE',
-        'DELETE',
-        SYS_CONTEXT('USERENV', 'SESSION_USER'),
-        SYS_CONTEXT('USERENV', 'SESSIONID'),
-        SYS_CONTEXT('USERENV', 'HOST'),
-        SYSDATE,
-        v_count_before  -- Temporary: will be updated to actual count
-    );
-END;
-/
-
--- After trigger to calculate actual deleted rows
-CREATE OR REPLACE TRIGGER audit_employee_delete_after
-AFTER DELETE ON EMPLOYEE
-DECLARE
-    v_count_after NUMBER;
-    v_count_before NUMBER;
-    v_audit_id NUMBER;
-BEGIN
-    -- Count employees after deletion
-    SELECT COUNT(*) INTO v_count_after FROM EMPLOYEE;
-    
-    -- Get the most recent audit record for this session
-    SELECT MAX(audit_id) INTO v_audit_id
-    FROM pizzeria_audit_log
-    WHERE session_id = SYS_CONTEXT('USERENV', 'SESSIONID')
-      AND table_name = 'EMPLOYEE'
-      AND operation = 'DELETE';
-    
-    -- Get the before count and calculate deleted rows
-    SELECT rows_affected INTO v_count_before
-    FROM pizzeria_audit_log
-    WHERE audit_id = v_audit_id;
-    
-    -- Update with actual number of deleted rows
-    UPDATE pizzeria_audit_log
-    SET rows_affected = v_count_before - v_count_after
-    WHERE audit_id = v_audit_id;
-END;
-/
-
--- ========================================
--- 3b.4: Trigger to audit high-value menu items
--- ========================================
-
-CREATE OR REPLACE TRIGGER audit_expensive_plates
-AFTER INSERT OR UPDATE OF price ON PLATE
-FOR EACH ROW
-WHEN (NEW.price > 15.00)  -- Plates more expensive than $15
-BEGIN
-    INSERT INTO pizzeria_audit_log (
-        audit_id,
-        table_name,
-        operation,
-        username,
-        session_id,
-        host,
-        audit_timestamp,
-        rows_affected,
-        new_value
-    ) VALUES (
-        seq_pizzeria_audit.NEXTVAL,
-        'PLATE',
-        CASE WHEN INSERTING THEN 'INSERT HIGH PRICE' ELSE 'UPDATE HIGH PRICE' END,
-        SYS_CONTEXT('USERENV', 'SESSION_USER'),
-        SYS_CONTEXT('USERENV', 'SESSIONID'),
-        SYS_CONTEXT('USERENV', 'HOST'),
-        SYSDATE,
-        1,
-        'Plate: ' || :NEW.name || ', Price: $' || :NEW.price || ', Menu ID: ' || :NEW.menu_id
-    );
-END;
-/
-
--- ========================================
--- 3b.5: Trigger to audit PIZZERIA ownership changes
--- ========================================
-
-CREATE OR REPLACE TRIGGER audit_pizzeria_owner_change
-AFTER UPDATE OF owner_id ON PIZZERIA
-FOR EACH ROW
-BEGIN
-    INSERT INTO pizzeria_audit_log (
-        audit_id,
-        table_name,
-        operation,
-        username,
-        session_id,
-        host,
-        audit_timestamp,
-        rows_affected,
-        old_value,
-        new_value
-    ) VALUES (
-        seq_pizzeria_audit.NEXTVAL,
-        'PIZZERIA',
-        'OWNER CHANGE',
-        SYS_CONTEXT('USERENV', 'SESSION_USER'),
-        SYS_CONTEXT('USERENV', 'SESSIONID'),
-        SYS_CONTEXT('USERENV', 'HOST'),
-        SYSDATE,
-        1,
-        'Pizzeria: ' || :OLD.name || ', Old Owner ID: ' || :OLD.owner_id,
-        'Pizzeria: ' || :NEW.name || ', New Owner ID: ' || :NEW.owner_id
-    );
-END;
-/
-
--- ========================================
--- 3b.6: Test the audit triggers
--- ========================================
-
--- Test 1: Update a plate price (should trigger audit_plate_price_changes)
-UPDATE PLATE
-SET price = 10.99
-WHERE plate_id = 1;
-
--- Test 2: Insert an expensive plate (should trigger audit_expensive_plates)
-INSERT INTO PLATE (plate_id, name, price, weight, menu_id)
-VALUES (100, 'Premium Truffle Deluxe', 25.00, 400, 1);
-
--- Test 3: Update to expensive price (should trigger both triggers)
-UPDATE PLATE
-SET price = 18.50
+-- Test Audit Trigger
+-- Update plate price
+UPDATE PLATE 
+SET price = 11.50 
 WHERE plate_id = 2;
 
 COMMIT;
 
--- View audit results
-SELECT audit_id, table_name, operation, username, 
-       TO_CHAR(audit_timestamp, 'YYYY-MM-DD HH24:MI:SS') as audit_time,
-       rows_affected, old_value, new_value
-FROM pizzeria_audit_log
-ORDER BY audit_timestamp DESC;
+-- View Trigger Audit Results
+-- View all audit records
+SELECT id_audit, user_, table_name, operation,
+       TO_CHAR(time_, 'YYYY-MM-DD HH24:MI:SS') as audit_time,
+       SUBSTR(old_value, 1, 50) as old_val,
+       SUBSTR(new_value, 1, 50) as new_val
+FROM audit_historic
+ORDER BY time_ DESC;
+
+-- Count operations by table
+SELECT table_name, operation, COUNT(*) as count
+FROM audit_historic
+GROUP BY table_name, operation
+ORDER BY table_name, count DESC;
+
+-- View operations by specific user
+SELECT user_, table_name, COUNT(*) as operations
+FROM audit_historic
+GROUP BY user_, table_name
+ORDER BY operations DESC;
 
 -- Rollback test changes
 ROLLBACK;
 
--- Delete test plate
-DELETE FROM PLATE WHERE plate_id = 100;
+-- Clean up test data
+DELETE FROM MENU WHERE menu_id = 200;
+DELETE FROM EMPLOYEE WHERE employee_id = 200;
 COMMIT;
 
--- ========================================
--- PART 3c: AUDIT POLICIES (Fine-Grained Auditing)
--- ========================================
+-- ========== c. AUDIT POLICIES
+-- Run as PIZZERIA_USER
 
--- Note: User needs EXECUTE privilege on DBMS_FGA
--- Grant it if needed (as SYSDBA or user with proper privileges):
--- GRANT EXECUTE ON DBMS_FGA TO your_username;
-
--- ========================================
--- 3c.1: Create audit policy for EMPLOYEE salary queries
--- ========================================
-
--- Policy to audit when anyone queries employee salaries
+-- Create Audit Handler
+-- Handler procedure that executes when policy is triggered
+CREATE OR REPLACE PROCEDURE audit_handler_plate(
+    object_schema VARCHAR2,
+    object_name VARCHAR2,
+    policy_name VARCHAR2
+) AS
 BEGIN
-    DBMS_FGA.ADD_POLICY(
-        object_schema   => USER,
-        object_name     => 'EMPLOYEE',
-        policy_name     => 'audit_employee_salary_access',
-        audit_column    => 'NAME,AGE',  -- Monitor access to these columns
-        enable          => TRUE,
-        statement_types => 'SELECT',
-        audit_trail     => DBMS_FGA.DB + DBMS_FGA.EXTENDED
-    );
+    DBMS_OUTPUT.PUT_LINE('Audit Policy Triggered: ' || policy_name);
+    DBMS_OUTPUT.PUT_LINE('Schema: ' || object_schema || ', Object: ' || object_name);
 END;
 /
 
--- ========================================
--- 3c.2: Create audit policy for PLATE price modifications
--- ========================================
-
--- Policy to audit price changes on plates
+-- Create Audit Policies
+-- Policy 1: Audit price changes on PLATE table
 BEGIN
     DBMS_FGA.ADD_POLICY(
         object_schema   => USER,
         object_name     => 'PLATE',
-        policy_name     => 'audit_plate_price_modification',
+        policy_name     => 'policy_plate_price',
+        enable          => FALSE,  -- Start disabled, will enable later
+        statement_types => 'UPDATE',
         audit_column    => 'PRICE',
-        enable          => TRUE,
-        statement_types => 'UPDATE,INSERT',
-        audit_trail     => DBMS_FGA.DB + DBMS_FGA.EXTENDED
+        handler_module  => 'AUDIT_HANDLER_PLATE'
     );
 END;
 /
 
--- ========================================
--- 3c.3: Create audit policy with condition for PIZZERIA
--- ========================================
+-- Policy 2: Audit employee data access
+BEGIN
+    DBMS_FGA.ADD_POLICY(
+        object_schema   => USER,
+        object_name     => 'EMPLOYEE',
+        policy_name     => 'policy_employee_access',
+        enable          => FALSE,
+        statement_types => 'SELECT, UPDATE',
+        audit_column    => 'NAME, AGE'
+    );
+END;
+/
 
--- Policy to audit changes to pizzeria ownership
+-- Policy 3: Audit PIZZERIA ownership queries
 BEGIN
     DBMS_FGA.ADD_POLICY(
         object_schema   => USER,
         object_name     => 'PIZZERIA',
-        policy_name     => 'audit_pizzeria_owner_policy',
-        audit_column    => 'OWNER_ID',
-        enable          => TRUE,
-        statement_types => 'SELECT,UPDATE',
-        audit_trail     => DBMS_FGA.DB + DBMS_FGA.EXTENDED,
-        audit_condition => 'owner_id IS NOT NULL'  -- Only when owner exists
+        policy_name     => 'policy_pizzeria_owner',
+        enable          => FALSE,
+        statement_types => 'SELECT, UPDATE',
+        audit_column    => 'OWNER_ID'
     );
 END;
 /
 
--- ========================================
--- 3c.4: Create audit policy for MENU modifications
--- ========================================
-
--- Policy to track all menu changes
+-- Enable Audit Policies
+-- Enable policy for PLATE
 BEGIN
-    DBMS_FGA.ADD_POLICY(
-        object_schema   => USER,
-        object_name     => 'MENU',
-        policy_name     => 'audit_menu_changes',
-        enable          => TRUE,
-        statement_types => 'INSERT,UPDATE,DELETE',
-        audit_trail     => DBMS_FGA.DB + DBMS_FGA.EXTENDED
+    DBMS_FGA.ENABLE_POLICY(
+        object_schema => USER,
+        object_name   => 'PLATE',
+        policy_name   => 'policy_plate_price'
     );
 END;
 /
 
--- ========================================
--- 3c.5: List all enabled audit policies
--- ========================================
+-- Enable policy for EMPLOYEE
+BEGIN
+    DBMS_FGA.ENABLE_POLICY(
+        object_schema => USER,
+        object_name   => 'EMPLOYEE',
+        policy_name   => 'policy_employee_access'
+    );
+END;
+/
 
-SELECT object_name, policy_name, enabled, 
-       sel, ins, upd, del,
-       audit_column
-FROM dba_audit_policies
-WHERE object_owner = USER
-ORDER BY object_name;
+-- Enable policy for PIZZERIA
+BEGIN
+    DBMS_FGA.ENABLE_POLICY(
+        object_schema => USER,
+        object_name   => 'PIZZERIA',
+        policy_name   => 'policy_pizzeria_owner'
+    );
+END;
+/
 
--- Alternative view
-SELECT policy_name, policy_text, enabled
-FROM all_audit_policies
-WHERE object_owner = USER
-  AND object_name IN ('EMPLOYEE', 'PLATE', 'PIZZERIA', 'MENU');
+-- Verify Policies are Enabled
+-- View all enabled policies
+SELECT object_name, policy_name, enabled, sel, ins, upd, del
+FROM user_audit_policies
+ORDER BY object_name, policy_name;
 
--- ========================================
--- 3c.6: Test the audit policies
--- ========================================
+-- Check if DBMS_FGA package is accessible
+SELECT object_name, object_type, status
+FROM user_objects
+WHERE object_name LIKE 'AUDIT%'
+  AND object_type IN ('PROCEDURE', 'FUNCTION');
 
--- Test 1: Query employee data (should trigger policy)
+-- Test Audit Policies
+-- Test 1: Query employee data (triggers policy_employee_access)
 SELECT name, age FROM EMPLOYEE WHERE employee_id = 1;
 
--- Test 2: Update plate price (should trigger policy)
-UPDATE PLATE SET price = 12.99 WHERE plate_id = 3;
+-- Test 2: Update plate price (triggers policy_plate_price)
+UPDATE PLATE SET price = 13.99 WHERE plate_id = 3;
 
--- Test 3: Query pizzeria owners (should trigger policy)
+-- Test 3: Query pizzeria ownership (triggers policy_pizzeria_owner)
 SELECT name, owner_id FROM PIZZERIA WHERE pizzeria_id = 1;
-
--- Test 4: Insert new menu (should trigger policy)
-INSERT INTO MENU (menu_id, name, pizzeria_id)
-VALUES (100, 'Test Menu', 1);
 
 COMMIT;
 
--- ========================================
--- 3c.7: Query Fine-Grained Audit results
--- ========================================
-
+-- View Fine-Grained Audit Results
 -- View FGA audit trail
-SELECT db_user, object_name, policy_name, 
+SELECT db_user, object_name, policy_name,
        TO_CHAR(timestamp, 'YYYY-MM-DD HH24:MI:SS') as access_time,
-       sql_text
+       SUBSTR(sql_text, 1, 100) as sql_snippet
 FROM dba_fga_audit_trail
-WHERE object_name IN ('EMPLOYEE', 'PLATE', 'PIZZERIA', 'MENU')
+WHERE db_user = USER
+  AND object_name IN ('PLATE', 'EMPLOYEE', 'PIZZERIA', 'MENU')
 ORDER BY timestamp DESC;
 
 -- Count accesses by policy
 SELECT policy_name, object_name, COUNT(*) as access_count
 FROM dba_fga_audit_trail
-WHERE object_name IN ('EMPLOYEE', 'PLATE', 'PIZZERIA', 'MENU')
+WHERE db_user = USER
+  AND object_name IN ('PLATE', 'EMPLOYEE', 'PIZZERIA', 'MENU')
 GROUP BY policy_name, object_name
 ORDER BY access_count DESC;
 
 -- Rollback test changes
 ROLLBACK;
-DELETE FROM MENU WHERE menu_id = 100;
+DELETE FROM MENU WHERE menu_id = 300;
 COMMIT;
 
--- ========================================
--- 3c.8: Disable/Enable audit policies
--- ========================================
-
--- Disable a policy
+-- Disable Policies
 BEGIN
     DBMS_FGA.DISABLE_POLICY(
         object_schema => USER,
-        object_name   => 'EMPLOYEE',
-        policy_name   => 'audit_employee_salary_access'
-    );
-END;
-/
-
--- Re-enable a policy
-BEGIN
-    DBMS_FGA.ENABLE_POLICY(
-        object_schema => USER,
-        object_name   => 'EMPLOYEE',
-        policy_name   => 'audit_employee_salary_access'
-    );
-END;
-/
-
--- ========================================
--- 3c.9: Drop audit policies (cleanup if needed)
--- ========================================
-
--- Uncomment to drop policies:
-/*
-BEGIN
-    DBMS_FGA.DROP_POLICY(
-        object_schema => USER,
-        object_name   => 'EMPLOYEE',
-        policy_name   => 'audit_employee_salary_access'
-    );
-    
-    DBMS_FGA.DROP_POLICY(
-        object_schema => USER,
         object_name   => 'PLATE',
-        policy_name   => 'audit_plate_price_modification'
+        policy_name   => 'policy_plate_price'
     );
     
-    DBMS_FGA.DROP_POLICY(
+    DBMS_FGA.DISABLE_POLICY(
+        object_schema => USER,
+        object_name   => 'EMPLOYEE',
+        policy_name   => 'policy_employee_access'
+    );
+    
+    DBMS_FGA.DISABLE_POLICY(
         object_schema => USER,
         object_name   => 'PIZZERIA',
-        policy_name   => 'audit_pizzeria_owner_policy'
+        policy_name   => 'policy_pizzeria_owner'
     );
     
-    DBMS_FGA.DROP_POLICY(
+    DBMS_FGA.DISABLE_POLICY(
         object_schema => USER,
         object_name   => 'MENU',
-        policy_name   => 'audit_menu_changes'
+        policy_name   => 'policy_menu_insert'
     );
 END;
 /
-*/
-
--- ========================================
--- PART 3d: COMPREHENSIVE AUDIT REPORTS
--- ========================================
-
--- ========================================
--- Report 1: All audit activity summary
--- ========================================
-
-SELECT 'Standard Audit' as audit_type,
-       COUNT(*) as total_records
-FROM dba_audit_trail
-WHERE obj_name IN ('PLATE', 'EMPLOYEE', 'OWNER', 'MENU', 'PIZZERIA')
-UNION ALL
-SELECT 'Trigger Audit',
-       COUNT(*)
-FROM pizzeria_audit_log
-UNION ALL
-SELECT 'Fine-Grained Audit',
-       COUNT(*)
-FROM dba_fga_audit_trail
-WHERE object_name IN ('EMPLOYEE', 'PLATE', 'PIZZERIA', 'MENU');
-
--- ========================================
--- Report 2: Recent trigger audit activity
--- ========================================
-
-SELECT 
-    TO_CHAR(audit_timestamp, 'YYYY-MM-DD HH24:MI:SS') as time,
-    table_name,
-    operation,
-    username,
-    rows_affected,
-    SUBSTR(old_value, 1, 50) as old_val,
-    SUBSTR(new_value, 1, 50) as new_val
-FROM pizzeria_audit_log
-ORDER BY audit_timestamp DESC
-FETCH FIRST 20 ROWS ONLY;
-
--- ========================================
--- Report 3: Security incidents (failed operations)
--- ========================================
-
-SELECT 
-    TO_CHAR(timestamp, 'YYYY-MM-DD HH24:MI:SS') as incident_time,
-    username,
-    obj_name,
-    action_name,
-    returncode,
-    SUBSTR(sql_text, 1, 100) as sql_snippet
-FROM dba_audit_trail
-WHERE returncode != 0
-  AND timestamp > SYSDATE - 7  -- Last 7 days
-ORDER BY timestamp DESC;
-
--- ========================================
--- Report 4: User activity summary
--- ========================================
-
-SELECT username,
-       COUNT(DISTINCT obj_name) as tables_accessed,
-       COUNT(*) as total_operations,
-       MIN(timestamp) as first_access,
-       MAX(timestamp) as last_access
-FROM dba_audit_trail
-WHERE obj_name IN ('PLATE', 'EMPLOYEE', 'OWNER', 'MENU', 'PIZZERIA')
-GROUP BY username
-ORDER BY total_operations DESC;
-
--- ========================================
--- DEMONSTRATION QUERIES
--- ========================================
-
-DBMS_OUTPUT.PUT_LINE('=== Pizzeria Database Auditing Demonstration ===');
-DBMS_OUTPUT.PUT_LINE('');
-DBMS_OUTPUT.PUT_LINE('Three types of auditing implemented:');
-DBMS_OUTPUT.PUT_LINE('1. Standard Audit - System-level auditing of database operations');
-DBMS_OUTPUT.PUT_LINE('2. Audit Triggers - Custom triggers for detailed monitoring');
-DBMS_OUTPUT.PUT_LINE('3. Audit Policies - Fine-grained auditing with DBMS_FGA');
-DBMS_OUTPUT.PUT_LINE('');
-DBMS_OUTPUT.PUT_LINE('All sensitive operations on PLATE, EMPLOYEE, OWNER, MENU are monitored');
-DBMS_OUTPUT.PUT_LINE('Audit trails stored in: dba_audit_trail, pizzeria_audit_log, dba_fga_audit_trail');
