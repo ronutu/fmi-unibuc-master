@@ -1,0 +1,371 @@
+
+-- b. Implementing the identity management configuration in the database
+-- Run as SYS
+
+SET SERVEROUTPUT ON;
+SET ECHO OFF;
+SET VERIFY OFF;
+
+-- Verify we're in the correct container
+SHOW CON_NAME;
+
+-- Switch to pluggable database if needed
+ALTER SESSION SET CONTAINER=ORCLPDB;
+
+-- Verify database is open for read/write
+SELECT name, open_mode FROM v$pdbs;
+
+-- Run this if not
+ALTER PLUGGABLE DATABASE ALL OPEN;
+
+-- Create main admin user
+CREATE USER pizzeria_admin IDENTIFIED BY admin123 PASSWORD EXPIRE;
+GRANT CREATE SESSION TO pizzeria_admin;
+GRANT CREATE USER TO pizzeria_admin;
+GRANT CREATE TABLE TO pizzeria_admin;
+GRANT CREATE PROCEDURE TO pizzeria_admin;
+GRANT CREATE TRIGGER TO pizzeria_admin;
+GRANT CREATE SEQUENCE TO pizzeria_admin;
+GRANT CREATE VIEW TO pizzeria_admin;
+
+-- Verify admin user was created
+SELECT username, account_status, authentication_type, 
+       TO_CHAR(created, 'DD/MM/YYYY HH24:MI:SS') as created_date
+FROM dba_users 
+WHERE username = 'PIZZERIA_ADMIN';
+
+-- Manager users (8 managers, one per pizzeria)
+CREATE USER manager1 IDENTIFIED BY manager1;
+CREATE USER manager2 IDENTIFIED BY manager2;
+CREATE USER manager3 IDENTIFIED BY manager3;
+CREATE USER manager4 IDENTIFIED BY manager4;
+CREATE USER manager5 IDENTIFIED BY manager5;
+CREATE USER manager6 IDENTIFIED BY manager6;
+CREATE USER manager7 IDENTIFIED BY manager7;
+CREATE USER manager8 IDENTIFIED BY manager8;
+
+-- Kitchen staff users (10 chefs/cooks)
+CREATE USER chef1 IDENTIFIED BY chef1;
+CREATE USER chef2 IDENTIFIED BY chef2;
+CREATE USER cook1 IDENTIFIED BY cook1;
+CREATE USER cook2 IDENTIFIED BY cook2;
+CREATE USER cook3 IDENTIFIED BY cook3;
+
+-- Service staff users (8 waiters/hosts)
+CREATE USER waiter1 IDENTIFIED BY waiter1;
+CREATE USER waiter2 IDENTIFIED BY waiter2;
+CREATE USER waiter3 IDENTIFIED BY waiter3;
+CREATE USER host1 IDENTIFIED BY host1;
+
+-- Inventory clerks (3 users)
+CREATE USER inventory1 IDENTIFIED BY inventory1;
+CREATE USER inventory2 IDENTIFIED BY inventory2;
+CREATE USER inventory3 IDENTIFIED BY inventory3;
+
+-- Customer/public user
+CREATE USER customer IDENTIFIED BY customer;
+
+-- Grant CREATE SESSION to all users
+GRANT CREATE SESSION TO manager1, manager2, manager3, manager4;
+GRANT CREATE SESSION TO manager5, manager6, manager7, manager8;
+GRANT CREATE SESSION TO chef1, chef2, cook1, cook2, cook3;
+GRANT CREATE SESSION TO waiter1, waiter2, waiter3, host1;
+GRANT CREATE SESSION TO inventory1, inventory2, inventory3;
+GRANT CREATE SESSION TO customer;
+
+-- Verify all users were created
+SELECT username, account_status, authentication_type, 
+       TO_CHAR(created, 'DD/MM/YYYY HH24:MI:SS') as created_date
+FROM dba_users 
+WHERE LOWER(username) IN ('pizzeria_admin', 'manager1', 'manager2', 'manager3', 
+                          'chef1', 'waiter1', 'inventory1', 'customer')
+ORDER BY created DESC;
+
+-- Admin gets unlimited storage
+ALTER USER pizzeria_admin QUOTA UNLIMITED ON users;
+
+-- Managers get 5MB each
+ALTER USER manager1 QUOTA 5M ON users;
+ALTER USER manager2 QUOTA 5M ON users;
+ALTER USER manager3 QUOTA 5M ON users;
+ALTER USER manager4 QUOTA 5M ON users;
+ALTER USER manager5 QUOTA 5M ON users;
+ALTER USER manager6 QUOTA 5M ON users;
+ALTER USER manager7 QUOTA 5M ON users;
+ALTER USER manager8 QUOTA 5M ON users;
+
+-- Kitchen staff get 2MB each
+ALTER USER chef1 QUOTA 2M ON users;
+ALTER USER chef2 QUOTA 2M ON users;
+ALTER USER cook1 QUOTA 2M ON users;
+ALTER USER cook2 QUOTA 2M ON users;
+ALTER USER cook3 QUOTA 2M ON users;
+
+-- Service staff get 1MB each
+ALTER USER waiter1 QUOTA 1M ON users;
+ALTER USER waiter2 QUOTA 1M ON users;
+ALTER USER waiter3 QUOTA 1M ON users;
+ALTER USER host1 QUOTA 1M ON users;
+
+-- Inventory clerks get 1MB each
+ALTER USER inventory1 QUOTA 1M ON users;
+ALTER USER inventory2 QUOTA 1M ON users;
+ALTER USER inventory3 QUOTA 1M ON users;
+
+-- Customer gets 0MB (cannot create objects)
+ALTER USER customer QUOTA 0M ON users;
+
+-- Verify storage quotas
+SELECT username, tablespace_name, 
+       CASE 
+           WHEN max_bytes = -1 THEN 'UNLIMITED'
+           ELSE TO_CHAR(max_bytes/1048576) || ' MB'
+       END as quota
+FROM dba_ts_quotas
+WHERE tablespace_name = 'USERS'
+  AND (LOWER(username) LIKE 'manager%' 
+       OR LOWER(username) LIKE 'chef%'
+       OR LOWER(username) LIKE 'cook%'
+       OR LOWER(username) LIKE 'waiter%'
+       OR LOWER(username) LIKE 'host%'
+       OR LOWER(username) LIKE 'inventory%'
+       OR LOWER(username) = 'customer'
+       OR LOWER(username) = 'pizzeria_admin')
+ORDER BY username;
+
+-- Profile for administrator
+CREATE PROFILE pizzeria_profile_admin LIMIT
+    sessions_per_user 3
+    idle_time 60
+    password_life_time 90
+    failed_login_attempts UNLIMITED;
+
+-- Profile for managers
+CREATE PROFILE pizzeria_profile_manager LIMIT
+    sessions_per_user 2
+    cpu_per_call 6000
+    idle_time 30
+    password_life_time 60
+    failed_login_attempts 5;
+
+-- Profile for staff (kitchen, service, inventory)
+CREATE PROFILE pizzeria_profile_staff LIMIT
+    sessions_per_user 1
+    cpu_per_call 6000
+    idle_time 15
+    password_life_time 30
+    failed_login_attempts 3;
+
+-- Profile for customers
+CREATE PROFILE pizzeria_profile_customer LIMIT
+    sessions_per_user 5
+    cpu_per_call 3000
+    idle_time 5
+    connect_time 30;
+
+-- Assign profiles to users
+ALTER USER pizzeria_admin PROFILE pizzeria_profile_admin;
+
+ALTER USER manager1 PROFILE pizzeria_profile_manager;
+ALTER USER manager2 PROFILE pizzeria_profile_manager;
+ALTER USER manager3 PROFILE pizzeria_profile_manager;
+ALTER USER manager4 PROFILE pizzeria_profile_manager;
+ALTER USER manager5 PROFILE pizzeria_profile_manager;
+ALTER USER manager6 PROFILE pizzeria_profile_manager;
+ALTER USER manager7 PROFILE pizzeria_profile_manager;
+ALTER USER manager8 PROFILE pizzeria_profile_manager;
+
+ALTER USER chef1 PROFILE pizzeria_profile_staff;
+ALTER USER chef2 PROFILE pizzeria_profile_staff;
+ALTER USER cook1 PROFILE pizzeria_profile_staff;
+ALTER USER cook2 PROFILE pizzeria_profile_staff;
+ALTER USER cook3 PROFILE pizzeria_profile_staff;
+ALTER USER waiter1 PROFILE pizzeria_profile_staff;
+ALTER USER waiter2 PROFILE pizzeria_profile_staff;
+ALTER USER waiter3 PROFILE pizzeria_profile_staff;
+ALTER USER host1 PROFILE pizzeria_profile_staff;
+ALTER USER inventory1 PROFILE pizzeria_profile_staff;
+ALTER USER inventory2 PROFILE pizzeria_profile_staff;
+ALTER USER inventory3 PROFILE pizzeria_profile_staff;
+
+ALTER USER customer PROFILE pizzeria_profile_customer;
+
+-- View profile assignments
+SELECT username, profile
+FROM dba_users
+WHERE LOWER(username) IN ('pizzeria_admin', 'manager1', 'chef1', 'waiter1', 'customer')
+ORDER BY profile, username;
+
+-- View profile settings
+SELECT * FROM dba_profiles 
+WHERE profile LIKE 'PIZZERIA_PROFILE%'
+ORDER BY profile, resource_name;
+
+-- Enable resource limits (required for profiles to take effect)
+ALTER SYSTEM SET resource_limit=TRUE;
+
+CREATE OR REPLACE PROCEDURE pizzeria_cpu_plan AS
+    v_other_groups_count NUMBER := 0;
+BEGIN
+    -- Create pending area and plan
+    DBMS_RESOURCE_MANAGER.CREATE_PENDING_AREA();
+    DBMS_RESOURCE_MANAGER.CREATE_PLAN(
+        plan => 'PIZZERIA_CPU_PLAN',
+        comment => 'CPU consumption plan for pizzeria chain application'
+    );
+    
+    -- Create consumer groups
+    DBMS_RESOURCE_MANAGER.CREATE_CONSUMER_GROUP(
+        consumer_group => 'management',
+        comment => 'Session group for administrators'
+    );
+    
+    DBMS_RESOURCE_MANAGER.CREATE_CONSUMER_GROUP(
+        consumer_group => 'operations',
+        comment => 'Session group for pizzeria managers'
+    );
+    
+    DBMS_RESOURCE_MANAGER.CREATE_CONSUMER_GROUP(
+        consumer_group => 'staff',
+        comment => 'Session group for kitchen, service, and inventory staff'
+    );
+    
+    -- Check if OTHER_GROUPS exists
+    SELECT COUNT(*) INTO v_other_groups_count
+    FROM dba_rsrc_consumer_groups
+    WHERE consumer_group = 'OTHER_GROUPS';
+    
+    IF v_other_groups_count = 0 THEN
+        DBMS_RESOURCE_MANAGER.CREATE_CONSUMER_GROUP(
+            consumer_group => 'OTHER_GROUPS',
+            comment => 'Session group for customers and visitors'
+        );
+    END IF;
+    
+    -- Map users to consumer groups (users cannot be mapped to OTHER_GROUPS)
+    -- Management group
+    DBMS_RESOURCE_MANAGER.SET_CONSUMER_GROUP_MAPPING(
+        DBMS_RESOURCE_MANAGER.ORACLE_USER, 'PIZZERIA_ADMIN', 'management'
+    );
+    
+    -- Operations group (managers)
+    DBMS_RESOURCE_MANAGER.SET_CONSUMER_GROUP_MAPPING(
+        DBMS_RESOURCE_MANAGER.ORACLE_USER, 'MANAGER1', 'operations'
+    );
+    DBMS_RESOURCE_MANAGER.SET_CONSUMER_GROUP_MAPPING(
+        DBMS_RESOURCE_MANAGER.ORACLE_USER, 'MANAGER2', 'operations'
+    );
+    DBMS_RESOURCE_MANAGER.SET_CONSUMER_GROUP_MAPPING(
+        DBMS_RESOURCE_MANAGER.ORACLE_USER, 'MANAGER3', 'operations'
+    );
+    DBMS_RESOURCE_MANAGER.SET_CONSUMER_GROUP_MAPPING(
+        DBMS_RESOURCE_MANAGER.ORACLE_USER, 'MANAGER4', 'operations'
+    );
+    DBMS_RESOURCE_MANAGER.SET_CONSUMER_GROUP_MAPPING(
+        DBMS_RESOURCE_MANAGER.ORACLE_USER, 'MANAGER5', 'operations'
+    );
+    DBMS_RESOURCE_MANAGER.SET_CONSUMER_GROUP_MAPPING(
+        DBMS_RESOURCE_MANAGER.ORACLE_USER, 'MANAGER6', 'operations'
+    );
+    DBMS_RESOURCE_MANAGER.SET_CONSUMER_GROUP_MAPPING(
+        DBMS_RESOURCE_MANAGER.ORACLE_USER, 'MANAGER7', 'operations'
+    );
+    DBMS_RESOURCE_MANAGER.SET_CONSUMER_GROUP_MAPPING(
+        DBMS_RESOURCE_MANAGER.ORACLE_USER, 'MANAGER8', 'operations'
+    );
+    
+    -- Staff group (kitchen, service, inventory)
+    DBMS_RESOURCE_MANAGER.SET_CONSUMER_GROUP_MAPPING(
+        DBMS_RESOURCE_MANAGER.ORACLE_USER, 'CHEF1', 'staff'
+    );
+    DBMS_RESOURCE_MANAGER.SET_CONSUMER_GROUP_MAPPING(
+        DBMS_RESOURCE_MANAGER.ORACLE_USER, 'CHEF2', 'staff'
+    );
+    DBMS_RESOURCE_MANAGER.SET_CONSUMER_GROUP_MAPPING(
+        DBMS_RESOURCE_MANAGER.ORACLE_USER, 'COOK1', 'staff'
+    );
+    DBMS_RESOURCE_MANAGER.SET_CONSUMER_GROUP_MAPPING(
+        DBMS_RESOURCE_MANAGER.ORACLE_USER, 'COOK2', 'staff'
+    );
+    DBMS_RESOURCE_MANAGER.SET_CONSUMER_GROUP_MAPPING(
+        DBMS_RESOURCE_MANAGER.ORACLE_USER, 'COOK3', 'staff'
+    );
+    DBMS_RESOURCE_MANAGER.SET_CONSUMER_GROUP_MAPPING(
+        DBMS_RESOURCE_MANAGER.ORACLE_USER, 'WAITER1', 'staff'
+    );
+    DBMS_RESOURCE_MANAGER.SET_CONSUMER_GROUP_MAPPING(
+        DBMS_RESOURCE_MANAGER.ORACLE_USER, 'WAITER2', 'staff'
+    );
+    DBMS_RESOURCE_MANAGER.SET_CONSUMER_GROUP_MAPPING(
+        DBMS_RESOURCE_MANAGER.ORACLE_USER, 'WAITER3', 'staff'
+    );
+    DBMS_RESOURCE_MANAGER.SET_CONSUMER_GROUP_MAPPING(
+        DBMS_RESOURCE_MANAGER.ORACLE_USER, 'HOST1', 'staff'
+    );
+    DBMS_RESOURCE_MANAGER.SET_CONSUMER_GROUP_MAPPING(
+        DBMS_RESOURCE_MANAGER.ORACLE_USER, 'INVENTORY1', 'staff'
+    );
+    DBMS_RESOURCE_MANAGER.SET_CONSUMER_GROUP_MAPPING(
+        DBMS_RESOURCE_MANAGER.ORACLE_USER, 'INVENTORY2', 'staff'
+    );
+    DBMS_RESOURCE_MANAGER.SET_CONSUMER_GROUP_MAPPING(
+        DBMS_RESOURCE_MANAGER.ORACLE_USER, 'INVENTORY3', 'staff'
+    );
+    
+    -- Create plan directives with CPU allocation percentages
+    DBMS_RESOURCE_MANAGER.CREATE_PLAN_DIRECTIVE(
+        plan => 'PIZZERIA_CPU_PLAN',
+        group_or_subplan => 'management',
+        comment => 'CPU allocation for administrators',
+        mgmt_p1 => 30
+    );
+    
+    DBMS_RESOURCE_MANAGER.CREATE_PLAN_DIRECTIVE(
+        plan => 'PIZZERIA_CPU_PLAN',
+        group_or_subplan => 'operations',
+        comment => 'CPU allocation for managers',
+        mgmt_p1 => 35
+    );
+    
+    DBMS_RESOURCE_MANAGER.CREATE_PLAN_DIRECTIVE(
+        plan => 'PIZZERIA_CPU_PLAN',
+        group_or_subplan => 'staff',
+        comment => 'CPU allocation for staff',
+        mgmt_p1 => 25
+    );
+    
+    DBMS_RESOURCE_MANAGER.CREATE_PLAN_DIRECTIVE(
+        plan => 'PIZZERIA_CPU_PLAN',
+        group_or_subplan => 'OTHER_GROUPS',
+        comment => 'CPU allocation for customers',
+        mgmt_p1 => 10
+    );
+    
+    -- Validate and submit the plan
+    DBMS_RESOURCE_MANAGER.VALIDATE_PENDING_AREA();
+    DBMS_RESOURCE_MANAGER.SUBMIT_PENDING_AREA();
+    
+    DBMS_OUTPUT.PUT_LINE('=== CPU consumption plan created and activated ===');
+END;
+/
+
+-- Execute the procedure to create the consumption plan
+EXECUTE pizzeria_cpu_plan;
+
+-- View consumer groups
+SELECT consumer_group, comments
+FROM dba_rsrc_consumer_groups
+WHERE consumer_group IN ('MANAGEMENT', 'OPERATIONS', 'STAFF', 'OTHER_GROUPS')
+ORDER BY consumer_group;
+
+-- View plan directives and user mappings
+SELECT DISTINCT 
+    a.username,
+    c.group_or_subplan as consumer_group,
+    c.mgmt_p1 as cpu_percentage,
+    c.plan
+FROM dba_rsrc_plan_directives c
+LEFT OUTER JOIN dba_users a 
+    ON (c.group_or_subplan = a.initial_rsrc_consumer_group)
+WHERE c.plan = 'PIZZERIA_CPU_PLAN'
+ORDER BY a.username NULLS LAST;
