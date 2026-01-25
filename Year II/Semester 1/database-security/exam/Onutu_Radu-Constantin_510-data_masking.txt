@@ -1,0 +1,61 @@
+-- Create directory for export/import
+CREATE OR REPLACE DIRECTORY direxp_pizzeria AS 'C:\PIZZERIA_EXPORT';
+
+-- Grant permissions to pizzeria_user
+GRANT READ, WRITE ON DIRECTORY direxp_pizzeria TO pizzeria_user;
+
+-- Scenario: Mask employee names and owner names for testing/development environment
+
+CREATE OR REPLACE PACKAGE pack_masking IS
+    FUNCTION f_masking_name(p_name VARCHAR2) RETURN VARCHAR2;
+    FUNCTION f_masking_id(p_id NUMBER) RETURN NUMBER;
+END;
+/
+
+CREATE OR REPLACE PACKAGE BODY pack_masking IS
+    TYPE t_tabind IS TABLE OF NUMBER INDEX BY PLS_INTEGER;
+    v_tabind t_tabind;
+    
+    -- Mask names: keep first character, replace rest with '*'
+    FUNCTION f_masking_name(p_name VARCHAR2) RETURN VARCHAR2 IS
+        v_name VARCHAR2(100);
+        v_len NUMBER;
+    BEGIN
+        v_name := SUBSTR(p_name, 1, 1);
+        SELECT LENGTH(p_name) INTO v_len FROM DUAL;
+        v_name := RPAD(v_name, v_len, '*');
+        RETURN v_name;
+    END f_masking_name;
+    
+    -- Mask IDs: generate random number with same first digit and length
+    FUNCTION f_masking_id(p_id NUMBER) RETURN NUMBER IS
+        v_len NUMBER;
+        v_min NUMBER;
+        v_max NUMBER;
+        v_seed VARCHAR2(100);
+        v_new_id NUMBER;
+    BEGIN
+        -- Check if we already masked this ID (for foreign key consistency)
+        IF v_tabind.EXISTS(p_id) THEN
+            RETURN v_tabind(p_id);
+        ELSE
+            -- Generate random number with same length and first digit
+            v_len := LENGTH(TO_CHAR(p_id));
+            v_min := TO_NUMBER(RPAD(SUBSTR(TO_CHAR(p_id), 1, 1), v_len, '0'));
+            v_max := TO_NUMBER(RPAD(SUBSTR(TO_CHAR(p_id), 1, 1), v_len, '9'));
+            
+            v_seed := TO_CHAR(SYSTIMESTAMP, 'YYYYDDMMHH24MISSFFFF');
+            DBMS_RANDOM.SEED(val => v_seed);
+            v_new_id := ROUND(DBMS_RANDOM.VALUE(low => v_min, high => v_max), 0);
+            
+            -- Store for foreign key consistency
+            v_tabind(p_id) := v_new_id;
+            RETURN v_new_id;
+        END IF;
+    END f_masking_id;
+END;
+/
+
+-- Test masking functions
+SELECT pack_masking.f_masking_name('Marco Ferrari') FROM DUAL;
+SELECT pack_masking.f_masking_id(123) FROM DUAL;

@@ -1,0 +1,173 @@
+-- a. System and Object Privileges 
+-- Grant permission to allow other users to create sessions
+GRANT CREATE SESSION TO pizzeria_user WITH ADMIN OPTION;
+
+-- Grant permission to create tables in any schema
+GRANT CREATE ANY TABLE TO pizzeria_user;
+
+-- Grant permission to create indexes (needed for primary keys)
+GRANT CREATE ANY INDEX TO pizzeria_user;
+
+-- Grant permission to create roles
+GRANT CREATE ROLE TO pizzeria_user;
+
+-- Grant permission to create views
+GRANT CREATE VIEW TO pizzeria_user;
+
+-- Grant permission to create procedures
+GRANT CREATE PROCEDURE TO pizzeria_user;
+
+-- Grant permission to create triggers
+GRANT CREATE TRIGGER TO pizzeria_user;
+
+-- b. Privileges hierarchies
+-- Role for managers
+CREATE ROLE manager_role;
+
+-- Role for kitchen staff
+CREATE ROLE kitchen_role;
+
+-- Role for service staff
+CREATE ROLE service_role;
+
+-- Role for inventory clerks
+CREATE ROLE inventory_role;
+
+-- Role for customers/public
+CREATE ROLE customer_role;
+
+GRANT CREATE SESSION TO manager_role;
+GRANT CREATE SESSION TO kitchen_role;
+GRANT CREATE SESSION TO service_role;
+GRANT CREATE SESSION TO inventory_role;
+GRANT CREATE SESSION TO customer_role;
+
+-- Managers can view and manage menus
+GRANT SELECT, INSERT, UPDATE, DELETE ON pizzeria_user.MENU TO manager_role;
+
+-- Managers can view and manage plates
+GRANT SELECT, INSERT, UPDATE, DELETE ON pizzeria_user.PLATE TO manager_role;
+
+-- Managers can view and manage employees
+GRANT SELECT, INSERT, UPDATE, DELETE ON pizzeria_user.EMPLOYEE TO manager_role;
+
+-- Managers can view pizzeria information
+GRANT SELECT ON pizzeria_user.PIZZERIA TO manager_role;
+
+-- Managers can view and manage departments
+GRANT SELECT, INSERT, UPDATE ON pizzeria_user.DEPARTMENT TO manager_role;
+
+-- Managers can view and manage teams
+GRANT SELECT, INSERT, UPDATE ON pizzeria_user.TEAM TO manager_role;
+
+-- Managers can view department-team mappings
+GRANT SELECT, INSERT, UPDATE ON pizzeria_user.DEPARTMENT_TEAM_MAPPING TO manager_role;
+
+-- Managers can view owner, city, country info
+GRANT SELECT ON pizzeria_user.OWNER TO manager_role;
+GRANT SELECT ON pizzeria_user.CITY TO manager_role;
+GRANT SELECT ON pizzeria_user.COUNTRY TO manager_role;
+
+-- Kitchen staff can view menus
+GRANT SELECT ON pizzeria_user.MENU TO kitchen_role;
+
+-- Kitchen staff can view and update plates (for availability, preparation notes)
+GRANT SELECT, UPDATE ON pizzeria_user.PLATE TO kitchen_role;
+
+-- Kitchen staff can view pizzeria information
+GRANT SELECT ON pizzeria_user.PIZZERIA TO kitchen_role;
+
+-- Kitchen staff can view employee information
+GRANT SELECT ON pizzeria_user.EMPLOYEE TO kitchen_role;
+
+-- Service staff can view menus and plates
+GRANT SELECT ON pizzeria_user.MENU TO service_role;
+GRANT SELECT ON pizzeria_user.PLATE TO service_role;
+
+-- Service staff can view pizzeria information
+GRANT SELECT ON pizzeria_user.PIZZERIA TO service_role;
+
+-- Service staff can view and update employee information
+GRANT SELECT, UPDATE ON pizzeria_user.EMPLOYEE TO service_role;
+
+-- Service staff can view departments and teams
+GRANT SELECT ON pizzeria_user.DEPARTMENT TO service_role;
+GRANT SELECT ON pizzeria_user.TEAM TO service_role;
+
+-- Inventory clerks can view plates (to know what ingredients are needed)
+GRANT SELECT ON pizzeria_user.PLATE TO inventory_role;
+
+-- Inventory clerks can view menus
+GRANT SELECT ON pizzeria_user.MENU TO inventory_role;
+
+-- Inventory clerks can view pizzeria information
+GRANT SELECT ON pizzeria_user.PIZZERIA TO inventory_role;
+
+-- Inventory clerks can view and update employee info (their colleagues)
+GRANT SELECT, UPDATE ON pizzeria_user.EMPLOYEE TO inventory_role;
+
+-- Customers can only view menus and plates
+GRANT SELECT ON pizzeria_user.MENU TO customer_role;
+GRANT SELECT ON pizzeria_user.PLATE TO customer_role;
+
+-- Customers can view pizzeria information (locations, hours, etc.)
+GRANT SELECT ON pizzeria_user.PIZZERIA TO customer_role;
+
+-- Customers can view city and country info
+GRANT SELECT ON pizzeria_user.CITY TO customer_role;
+GRANT SELECT ON pizzeria_user.COUNTRY TO customer_role;
+
+-- Assign manager_role to manager users
+GRANT manager_role TO manager1;
+GRANT manager_role TO manager2;
+GRANT manager_role TO manager3;
+GRANT manager_role TO manager4;
+GRANT manager_role TO manager5;
+GRANT manager_role TO manager6;
+GRANT manager_role TO manager7;
+GRANT manager_role TO manager8;
+
+-- Assign kitchen_role to kitchen staff
+GRANT kitchen_role TO chef1;
+GRANT kitchen_role TO chef2;
+GRANT kitchen_role TO cook1;
+GRANT kitchen_role TO cook2;
+GRANT kitchen_role TO cook3;
+
+-- Assign service_role to service staff
+GRANT service_role TO waiter1;
+GRANT service_role TO waiter2;
+GRANT service_role TO waiter3;
+GRANT service_role TO host1;
+
+-- Assign inventory_role to inventory clerks
+GRANT inventory_role TO inventory1;
+GRANT inventory_role TO inventory2;
+GRANT inventory_role TO inventory3;
+
+-- Assign customer_role to customer user
+GRANT customer_role TO customer;
+
+-- c. Privileges on dependent objects
+-- As PIZZERIA_USER, create a view that shows menu with plate details
+CREATE OR REPLACE VIEW pizzeria_user.menu_display AS
+SELECT 
+    m.menu_id,
+    m.name AS menu_name,
+    p.plate_id,
+    p.name AS plate_name,
+    p.price,
+    p.weight,
+    pz.name AS pizzeria_name
+FROM pizzeria_user.MENU m
+JOIN pizzeria_user.PLATE p ON m.menu_id = p.menu_id
+JOIN pizzeria_user.PIZZERIA pz ON m.pizzeria_id = pz.pizzeria_id
+ORDER BY m.menu_id, p.plate_id;
+
+-- Grant SELECT privilege on the view to all roles
+GRANT SELECT ON pizzeria_user.menu_display TO manager_role;
+GRANT SELECT ON pizzeria_user.menu_display TO kitchen_role;
+GRANT SELECT ON pizzeria_user.menu_display TO service_role;
+GRANT SELECT ON pizzeria_user.menu_display TO customer_role;
+
+SELECT * FROM pizzeria_user.menu_display WHERE menu_id = 1;

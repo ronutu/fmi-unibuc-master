@@ -1,4 +1,3 @@
-
 -- b. Implementing the identity management configuration in the database
 -- Run as SYS
 

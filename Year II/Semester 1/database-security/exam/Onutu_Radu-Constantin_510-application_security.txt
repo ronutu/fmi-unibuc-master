@@ -1,0 +1,73 @@
+-- a. Application Context
+-- Create context
+CREATE CONTEXT pizzeria_context USING proc_pizzeria_context;
+
+-- Create procedure to set context
+CREATE OR REPLACE PROCEDURE proc_pizzeria_context IS
+    v_hour NUMBER(3);
+BEGIN
+    SELECT TO_NUMBER(TO_CHAR(SYSDATE, 'HH24')) INTO v_hour FROM DUAL;
+    DBMS_OUTPUT.PUT_LINE('Hour: ' || v_hour);
+    
+    IF v_hour < 8 OR v_hour > 20 THEN
+        DBMS_OUTPUT.PUT_LINE('Cannot update prices outside business hours!');
+        DBMS_SESSION.SET_CONTEXT('PIZZERIA_CONTEXT', 'attr_hour', 'NO');
+    ELSE
+        DBMS_SESSION.SET_CONTEXT('PIZZERIA_CONTEXT', 'attr_hour', 'YES');
+    END IF;
+END;
+/
+
+-- Test the procedure
+EXECUTE proc_pizzeria_context;
+
+-- Managers automatically get this context at login
+CREATE OR REPLACE TRIGGER tr_pizzeria_after_logon
+AFTER LOGON ON DATABASE
+DECLARE
+    v_user VARCHAR2(30);
+BEGIN
+    v_user := SYS_CONTEXT('USERENV', 'SESSION_USER');
+    IF LOWER(v_user) LIKE 'manager%' OR LOWER(v_user) = 'pizzeria_admin' THEN
+        proc_pizzeria_context;
+    END IF;
+END;
+/
+
+-- Managers cannot update prices if context is NO
+CREATE OR REPLACE TRIGGER tr_before_price_update
+BEFORE UPDATE ON pizzeria_user.PLATE
+BEGIN
+    IF SYS_CONTEXT('PIZZERIA_CONTEXT', 'attr_hour') = 'NO' THEN
+        DBMS_OUTPUT.PUT_LINE('Cannot update prices - outside business hours!');
+        RAISE_APPLICATION_ERROR(-20009, 'You cannot update PLATE prices right now!');
+    END IF;
+END;
+/
+
+UPDATE pizzeria_user.PLATE SET price = 12.99 WHERE plate_id = 1;
+
+-- b. SQL Injection
+CREATE OR REPLACE PROCEDURE view_menu_items_secure(p_menu_id NUMBER) AS
+  TYPE t_table IS TABLE OF pizzeria_user.plate%ROWTYPE;
+  v_table t_table;
+BEGIN
+  SELECT *
+  BULK COLLECT INTO v_table
+  FROM pizzeria_user.plate
+  WHERE menu_id = p_menu_id;
+
+  FOR i IN 1 .. v_table.COUNT LOOP
+    DBMS_OUTPUT.PUT_LINE(
+      'Plate: ' || v_table(i).name || ', Price: $' || v_table(i).price
+    );
+  END LOOP;
+END;
+/
+SHOW ERRORS
+
+GRANT EXECUTE ON view_menu_items_secure TO manager1;
+GRANT EXECUTE ON view_menu_items_secure TO customer;
+
+-- Test secure version (works normally)
+EXEC view_menu_items_secure(1);
