@@ -1,4 +1,4 @@
--- Key storage
+-- Stores encryption keys
 CREATE TABLE enc_keys (
   key_id     NUMBER PRIMARY KEY,
   key_raw    RAW(16) NOT NULL,
@@ -9,7 +9,7 @@ CREATE TABLE enc_keys (
 -- Encrypted table
 -- owner_id stays readable (so we can reference owners)
 -- name_enc is encrypted bytes
--- row_hash is SHA-256 over (owner_id|name|city_id) to detect tampering
+-- row_hash is SHA-256 over (owner_id|name|city_id) to detect changes
 CREATE TABLE owner_enc (
   owner_id  NUMBER PRIMARY KEY,
   name_enc  RAW(2000) NOT NULL,
@@ -36,28 +36,31 @@ CREATE OR REPLACE PROCEDURE encrypt_owner_demo AS
   v_hash       RAW(32);
 
 BEGIN
-  -- fresh start (demo)
   DELETE FROM owner_enc;
   DELETE FROM enc_keys WHERE key_id = 1 AND entity = 'OWNER';
 
-  -- generate and store key
+  -- Generates a new random AES key and stores it
   v_key := DBMS_CRYPTO.RANDOMBYTES(16);
   INSERT INTO enc_keys(key_id, key_raw, entity) VALUES (1, v_key, 'OWNER');
 
-  -- AES-128 + CBC + PKCS5 padding (simple demo settings)
+  -- Sets encryption mode
   v_mode := DBMS_CRYPTO.ENCRYPT_AES128
          +  DBMS_CRYPTO.CHAIN_CBC
          +  DBMS_CRYPTO.PAD_PKCS5;
 
+  -- Loops through every row in plaintext owner
   FOR r IN (SELECT owner_id, name, city_id FROM owner) LOOP
+    -- Converts the name string to bytes
     v_raw_name := UTL_I18N.STRING_TO_RAW(r.name, 'AL32UTF8');
+    -- Encrypts those bytes
     v_enc_name := DBMS_CRYPTO.ENCRYPT(v_raw_name, v_mode, v_key);
 
-    -- integrity over plaintext fields (detects changed encrypted rows)
+    -- Computes a SHA-256 integrity hash over plaintext fields)
+    -- detect if the encrypted row was changed later (or decrypted to something different)
     v_concat := r.owner_id || '|' || r.name || '|' || r.city_id;
     v_hash   := DBMS_CRYPTO.HASH(UTL_I18N.STRING_TO_RAW(v_concat, 'AL32UTF8'),
                                  DBMS_CRYPTO.HASH_SH256);
-
+    -- Inserts into owner_enc
     INSERT INTO owner_enc(owner_id, name_enc, city_id, row_hash)
     VALUES (r.owner_id, v_enc_name, r.city_id, v_hash);
   END LOOP;
@@ -91,25 +94,32 @@ CREATE OR REPLACE PROCEDURE decrypt_owner_demo AS
 BEGIN
   DELETE FROM owner_dec;
 
+  -- Loads the key
   SELECT key_raw INTO v_key
   FROM enc_keys
   WHERE key_id = 1 AND entity = 'OWNER';
 
+  -- Uses same AES settings
   v_mode := DBMS_CRYPTO.ENCRYPT_AES128
          +  DBMS_CRYPTO.CHAIN_CBC
          +  DBMS_CRYPTO.PAD_PKCS5;
 
+  -- Loops encrypted rows
   FOR r IN (SELECT owner_id, name_enc, city_id, row_hash FROM owner_enc) LOOP
+    -- Decrypts bytes -> converts back to string
     v_raw_name := DBMS_CRYPTO.DECRYPT(r.name_enc, v_mode, v_key);
     v_name     := UTL_I18N.RAW_TO_CHAR(v_raw_name, 'AL32UTF8');
 
+    -- Recomputes hash and compares
     v_concat   := r.owner_id || '|' || v_name || '|' || r.city_id;
     v_hash_now := DBMS_CRYPTO.HASH(UTL_I18N.STRING_TO_RAW(v_concat, 'AL32UTF8'),
                                    DBMS_CRYPTO.HASH_SH256);
 
+    -- If it matches, it writes plaintext row into owner_dec
     IF v_hash_now = r.row_hash THEN
       INSERT INTO owner_dec(owner_id, name, city_id)
       VALUES (r.owner_id, v_name, r.city_id);
+    -- If not, it prints an integrity failure and skips the insert.
     ELSE
       DBMS_OUTPUT.PUT_LINE('Integrity FAILED for owner_id=' || r.owner_id);
     END IF;

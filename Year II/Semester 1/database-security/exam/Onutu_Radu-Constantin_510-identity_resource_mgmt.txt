@@ -1,14 +1,19 @@
 -- b. Implementing the identity management configuration in the database
 -- Run as SYS
 
+-- See all users:
+-- SELECT username, created
+-- FROM all_users
+-- ORDER BY username;
+
 SET SERVEROUTPUT ON;
 SET ECHO OFF;
 SET VERIFY OFF;
 
--- Verify we're in the correct container
+-- Verify correct container
 SHOW CON_NAME;
 
--- Switch to pluggable database if needed
+-- Switch to pluggable database
 ALTER SESSION SET CONTAINER=ORCLPDB;
 
 -- Verify database is open for read/write

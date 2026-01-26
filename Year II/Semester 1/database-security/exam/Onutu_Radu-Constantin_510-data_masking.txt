@@ -4,7 +4,7 @@ CREATE OR REPLACE DIRECTORY direxp_pizzeria AS 'C:\PIZZERIA_EXPORT';
 -- Grant permissions to pizzeria_user
 GRANT READ, WRITE ON DIRECTORY direxp_pizzeria TO pizzeria_user;
 
--- Scenario: Mask employee names and owner names for testing/development environment
+-- Mask employee names and owner names for testing/development environment
 
 CREATE OR REPLACE PACKAGE pack_masking IS
     FUNCTION f_masking_name(p_name VARCHAR2) RETURN VARCHAR2;

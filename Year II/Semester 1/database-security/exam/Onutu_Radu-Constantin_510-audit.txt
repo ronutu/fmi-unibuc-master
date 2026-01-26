@@ -1,3 +1,7 @@
+-- Run as pizzeria_user
+-- ALTER DATABASE OPEN;
+-- alter pluggable database orclpdb open;
+
 -- ========== a. STANDARD AUDITING
 -- Enable Standard Audit for Sensitive Tables
 -- Audit all DML operations on PLATE table (prices are sensitive)
