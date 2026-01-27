@@ -23,6 +23,6 @@
 | No.  | Courses |
 | ------------- | ------------- |
 | 1  | [Database Security](Year%20II/Semester%201/database-security/)  |
-| 2  | [Data Warehousing & Business Intelligence](Year%20II/Semester%201/data-warehousing-business-intelligencey/)  |
+| 2  | [Data Warehousing & Business Intelligence](Year%20II/Semester%201/data-warehousing-business-intelligence/)  |
 | 3  | [Modern Technologies for Securing Information](Year%20II/Semester%201/modern-technologies-for-securing-information/)  |
 | 4  | [Special Topics in Security and Applied Logic I](Year%20II/Semester%201/special-topics-in-security-and-applied-logic-I/)  |
