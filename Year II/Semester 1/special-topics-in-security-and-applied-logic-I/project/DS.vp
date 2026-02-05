@@ -1,0 +1,80 @@
+attacker[active]
+
+// - skA is Alice’s private signing key
+// - pkA is the corresponding public key derived from skA
+principal Alice[
+  knows private skA
+  pkA = G^skA
+]
+
+// Alice sends to Bob her public key (non modifiable by the attacker)
+Alice -> Bob: [pkA]
+
+// - skB is Bob’s private decryption key
+// - pkB is Bob’s public encryption key derived from skB
+// - secretB is some confidential value that Bob wants to protect
+principal Bob[
+  knows private skB
+  pkB = G^skB
+  knows private secretB
+]
+
+// Here is the vulnerability in the Denning-Sacco protocol
+// Bob sends pkB over an *unprotected* channel
+// Because the attacker is active, they can intercept/replace pkB with their own public key
+// Alice cannot tell the difference and may encrypt to the attacker’s key by mistake
+Bob -> Alice: [pkB]
+
+// [Solution: Bob sends pkB over authenticated channel <=> [pkB]]
+// or make Alice compute the signature of pkB
+// now the attacker will not be able to change the signature because he needs skA
+
+principal Alice[
+  // Alice creates a fresh session key k for this run of the protocol.
+  generates k
+
+  // Alice signs k with her private signing key skA.
+  // This proves to anyone who knows pkA that “k came from Alice”.
+  sigK = SIGN(skA, k)
+
+  // Alice packages the session key together with its signature.
+  // (Verifpal needs both values so Bob can recover k and then verify the signature.)
+  payload = CONCAT(k, sigK)
+
+  // Alice encrypts the payload with “pkB” as received from the network.
+  // If pkB was replaced by the attacker, this encryption goes to the attacker instead of Bob.
+  c1 = PKE_ENC(pkB, payload)
+]
+
+// Message (1): Alice sends the encrypted (k, signature) bundle.
+// Attacker intercepts c1 and decrypts it using their private key skH
+// Attacker learns k and sigK
+// Attacker now re-encrypts the exact same payload under Bob’s real public key
+// (which the attacker knows from the original message):
+Alice -> Bob: c1
+
+principal Bob[
+  // Bob decrypts using his private key skB.
+  // If c1 was truly encrypted under Bob’s pkB, Bob recovers the payload.
+  payload_b = PKE_DEC(skB, c1)
+
+  // Split the payload back into the session key and Alice’s signature on it.
+  kB, sigKB = SPLIT(payload_b)?
+
+  // Bob checks that the signature is valid under Alice’s public key pkA.
+  // The “?” means this step is checked: if verification fails, the protocol run stops here.
+  kB_ok = SIGNVERIF(pkA, kB, sigKB)?
+
+  // Bob uses the verified session key to encrypt his secret.
+  // If the attacker learned k (via key substitution earlier), they can decrypt this.
+  c2 = ENC(kB_ok, secretB)
+]
+
+// Message (2): Bob sends the secret encrypted under the session key.
+Bob -> Alice: c2
+
+queries[
+  // Security goal: the attacker should NOT learn secretB.
+  // In this vulnerable variant, Verifpal should find an attack showing secretB leaks.
+  confidentiality? secretB
+]

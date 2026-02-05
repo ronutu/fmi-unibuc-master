@@ -1,0 +1,24 @@
+attacker[active]
+
+principal Alice[
+    generates a
+    ga = G^a 
+]
+
+Alice -> Bob: [ga] 
+
+principal Bob [
+    generates b 
+    gb = G^b 
+    gab = ga^b 
+]
+
+Bob -> Alice: [gb] 
+
+principal Alice[
+    gba = gb^a 
+]
+
+queries[
+    confidentiality? gab
+]
