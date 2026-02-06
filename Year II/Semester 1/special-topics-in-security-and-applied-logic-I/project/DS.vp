@@ -23,7 +23,7 @@ principal Bob[
 // Bob sends pkB over an *unprotected* channel
 // Because the attacker is active, they can intercept/replace pkB with their own public key
 // Alice cannot tell the difference and may encrypt to the attacker’s key by mistake
-Bob -> Alice: [pkB]
+Bob -> Alice: pkB
 
 // [Solution: Bob sends pkB over authenticated channel <=> [pkB]]
 // or make Alice compute the signature of pkB
@@ -76,5 +76,6 @@ Bob -> Alice: c2
 queries[
   // Security goal: the attacker should NOT learn secretB.
   // In this vulnerable variant, Verifpal should find an attack showing secretB leaks.
-  confidentiality? secretB
+  confidentiality? skA
+  //authentication? Bob -> Alice: pkB
 ]
